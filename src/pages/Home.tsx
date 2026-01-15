@@ -30,6 +30,8 @@ export default function Home() {
   const [showLast, setShowLast] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
+  const [displayedInput, setDisplayedInput] = useState<any>(null);
+
   useEffect(() => {
     const saved = localStorage.getItem(LS_LAST_RUN);
     if (saved) setLastRunId(saved);
@@ -117,6 +119,18 @@ export default function Home() {
   const displayedSummary = isShowingSessionResult ? resultSummary : isShowingLast ? lastSummary : null;
 
   const badge = statusBadge(displayedStatus ?? undefined);
+
+  useEffect(() => {
+    if (!displayedRunId) {
+      setDisplayedInput(null);
+      return;
+    }
+
+    // fetch run to get input and show "rules applied"
+    fetchRun(displayedRunId)
+      .then(({ run }) => setDisplayedInput(run.input))
+      .catch(() => setDisplayedInput(null));
+  }, [displayedRunId]);
 
   return (
     <div style={{ display: "grid", gridTemplateColumns: "1.2fr 0.8fr", gap: 18 }}>
@@ -217,9 +231,36 @@ export default function Home() {
           <div style={scenarioSub}>Expected: Partial completion</div>
         </button>
 
-        <div style={{ marginTop: 12, fontSize: 12, opacity: 0.7 }}>
-          Tip: The execution log is available after running a scenario, but it’s secondary. The main goal is clarity: do
-          you need to act, or did the system handle everything?
+        <div style={{ marginTop: 12, padding: 12, borderRadius: 14, background: "rgba(0,0,0,0.04)" }}>
+          <div style={{ fontWeight: 900, marginBottom: 6 }}>How this demo works</div>
+          <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, opacity: 0.9 }}>
+            <li>You trigger an <b>offer signed</b> event.</li>
+            <li>The system executes deterministic onboarding actions automatically.</li>
+            <li>HR is involved only when ambiguity is detected (FLAGGED).</li>
+          </ul>
+        </div>
+
+        <div style={{ marginTop: 12, padding: 12, borderRadius: 14, border: "1px solid rgba(0,0,0,0.10)" }}>
+          <div style={{ fontWeight: 900, marginBottom: 6 }}>Decision rules applied</div>
+
+          {!displayedRunId && (
+            <div style={{ fontSize: 13, opacity: 0.8 }}>
+              Run a scenario to see which rules were applied (country, department, contract type).
+            </div>
+          )}
+
+          {displayedRunId && displayedInput && (
+            <div style={{ display: "grid", gap: 8, fontSize: 13, opacity: 0.9 }}>
+              <RuleRow label="Country" value={displayedInput?.employment?.country ?? "—"} />
+              <RuleRow label="Department" value={displayedInput?.job?.department ?? "—"} />
+              <RuleRow label="Contract type" value={displayedInput?.employment?.contract_type ?? "—"} />
+              <RuleRow label="Role" value={displayedInput?.job?.title ?? "—"} />
+              <RuleRow
+                label="Human involvement"
+                value={(displayedStatus ?? "").toUpperCase() === "FLAGGED" ? "Required (ambiguity detected)" : "Not required"}
+              />
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -275,3 +316,12 @@ const scenarioSub: React.CSSProperties = {
   fontWeight: 700,
   marginTop: 6,
 };
+
+function RuleRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+      <div style={{ fontWeight: 800, opacity: 0.85 }}>{label}</div>
+      <div style={{ fontWeight: 900 }}>{value}</div>
+    </div>
+  );
+}
