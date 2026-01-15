@@ -1,35 +1,28 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { Routes, Route, Link } from "react-router-dom";
+import Home from "./pages/Home";
+import RunLog from "./pages/RunLog";
 
-function App() {
-  const [count, setCount] = useState(0)
-
+export default function App() {
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
+    <div style={{ maxWidth: 980, margin: "0 auto", padding: 24, fontFamily: "system-ui, -apple-system, Segoe UI, Roboto" }}>
+      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+        <Link to="/" style={{ textDecoration: "none", color: "inherit" }}>
+          <div style={{ fontWeight: 800 }}>Zero-Touch Onboarding Engine</div>
+          <div style={{ fontSize: 14, opacity: 0.75 }}>From signal → outcome, with full auditability.</div>
+        </Link>
+        <a href="https://jeremybrunet.com" target="_blank" rel="noreferrer" style={{ fontSize: 14 }}>
+          jeremybrunet.com
         </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
-}
+      </header>
 
-export default App
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/runs/:runId" element={<RunLog />} />
+      </Routes>
+
+      <footer style={{ marginTop: 40, fontSize: 12, opacity: 0.7 }}>
+        Demo app — serverless APIs + Activepieces + Supabase.
+      </footer>
+    </div>
+  );
+}
