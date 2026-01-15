@@ -1,22 +1,35 @@
-import { allowOnlyPost, assertInternal } from "../_lib/auth";
-import { getSupabaseAdmin } from "../_lib/supabaseAdmin";
+import { createClient } from "@supabase/supabase-js";
+
+function assertInternal(req: any, res: any) {
+  const key = req.headers["x-internal-key"];
+  if (!key || key !== process.env.INTERNAL_API_KEY) {
+    res.status(401).json({ error: "Unauthorized" });
+    return false;
+  }
+  return true;
+}
+
+function getSupabaseAdmin() {
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY; // (= secret_key Supabase)
+  if (!url || !key) throw new Error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
+  return createClient(url, key);
+}
 
 function safeJson(value: any) {
-  if (value === undefined) return null;
-  if (value === null) return null;
+  if (value === undefined || value === null) return null;
   if (typeof value === "string") {
-    // si c'est une string JSON, on tente de parser, sinon on stocke comme texte
     try {
       return JSON.parse(value);
     } catch {
       return { raw: value };
     }
   }
-  return value; // objet, array, number, etc.
+  return value;
 }
 
 export default async function handler(req: any, res: any) {
-  if (!allowOnlyPost(req, res)) return;
+  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
   if (!assertInternal(req, res)) return;
 
   const { run_id, step, status, reason, input, output } = req.body ?? {};
@@ -26,8 +39,10 @@ export default async function handler(req: any, res: any) {
 
   const supabase = getSupabaseAdmin();
 
-  // ⚠️ Mets ici le nom exact de ta table :
-  const STEPS_TABLE = "run_steps"; // ou "runs_steps"
+  // ⚠️ Mets ici le nom EXACT de ta table steps :
+  // - si ta table s'appelle "run_steps" laisse comme ça
+  // - si elle s'appelle "runs_steps" remplace
+  const STEPS_TABLE = "run_steps";
 
   const { error } = await supabase.from(STEPS_TABLE).insert({
     run_id,
