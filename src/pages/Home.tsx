@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { postOfferSigned, fetchRun, type OfferSignedPayload } from "../lib/api";
+import { postOfferSigned, fetchRun, type OfferSignedPayload, type RunStep } from "../lib/api";
 import { statusBadge, toneStyle } from "../lib/rh";
+import { getEvidence } from "../lib/steps";
 
 const LS_LAST_RUN = "hr_onboarding_last_run_id";
+
+type ScenarioKind = "standard" | "flagged" | "partial";
 
 function cardStyle(): React.CSSProperties {
   return {
@@ -14,23 +17,69 @@ function cardStyle(): React.CSSProperties {
   };
 }
 
+function pill(tone: "success" | "warning" | "danger" | "neutral") {
+  return toneStyle(tone);
+}
+
+function rhMeaning(status?: string, input?: any) {
+  const s = (status ?? "").toUpperCase();
+  if (s === "SUCCESS") {
+    return "✅ No action required. The system executed all deterministic onboarding actions automatically.";
+  }
+  if (s === "FLAGGED") {
+    const role = input?.job?.title ? ` (“${input.job.title}”)` : "";
+    return `⚠️ Human review required. The system detected ambiguity that needs HR input${role}.`;
+  }
+  if (s === "PARTIAL") {
+    return "🟡 Partially completed. Most actions were executed automatically, but at least one step requires follow-up.";
+  }
+  if (s === "FAILED") {
+    return "❌ Failed. The system could not complete the onboarding run. Please inspect the journal for details.";
+  }
+  return "Run a scenario to generate an onboarding decision.";
+}
+
+function DemoContext({ input }: { input?: any }) {
+  const first = input?.candidate?.first_name ?? "Ana";
+  const last = input?.candidate?.last_name ?? "Lopez";
+  const title = input?.job?.title ?? "Backend Engineer";
+  const dept = input?.job?.department ?? "Engineering";
+  const country = input?.employment?.country ?? "FR";
+  const contract = input?.employment?.contract_type ?? "Permanent";
+  const start = input?.employment?.start_date ?? "2026-02-03";
+
+  return (
+    <div style={{ padding: 14, borderRadius: 14, background: "rgba(0,0,0,0.04)" }}>
+      <div style={{ fontWeight: 900, marginBottom: 6 }}>Demo context</div>
+      <div style={{ fontSize: 14, opacity: 0.9, lineHeight: 1.45 }}>
+        You are viewing a simulated onboarding aftermath for a new hire.
+        <br />
+        <b>{first} {last}</b> is joining <b>{dept}</b> as <b>{title}</b> in <b>{country}</b> ({contract}).
+        <br />
+        Start date: <b>{start}</b>.
+      </div>
+    </div>
+  );
+}
+
 export default function Home() {
   const [loading, setLoading] = useState(false);
+  const [activeScenario, setActiveScenario] = useState<ScenarioKind | null>(null);
 
-  // "result" = le run déclenché pendant cette session (après click)
-  const [resultRunId, setResultRunId] = useState<string | null>(null);
-  const [resultStatus, setResultStatus] = useState<string | null>(null);
-  const [resultSummary, setResultSummary] = useState<string | null>(null);
-
-  // last run = persistance, mais on ne l'affiche pas automatiquement
+  // we don’t auto-show last run anymore
   const [lastRunId, setLastRunId] = useState<string | null>(null);
-  const [lastStatus, setLastStatus] = useState<string | null>(null);
-  const [lastSummary, setLastSummary] = useState<string | null>(null);
 
-  const [showLast, setShowLast] = useState(false);
+  // displayed run data
+  const [displayedRunId, setDisplayedRunId] = useState<string | null>(null);
+  const [displayedStatus, setDisplayedStatus] = useState<string | null>(null);
+  const [displayedSummary, setDisplayedSummary] = useState<string | null>(null);
+  const [displayedInput, setDisplayedInput] = useState<any>(null);
+  const [displayedSteps, setDisplayedSteps] = useState<RunStep[]>([]);
+
   const [err, setErr] = useState<string | null>(null);
 
-  const [displayedInput, setDisplayedInput] = useState<any>(null);
+  // right panel tab
+  const [tab, setTab] = useState<"overview" | "journal">("overview");
 
   useEffect(() => {
     const saved = localStorage.getItem(LS_LAST_RUN);
@@ -48,8 +97,9 @@ export default function Home() {
     []
   );
 
-  async function runScenario(kind: "standard" | "flagged" | "partial") {
+  async function runScenario(kind: ScenarioKind) {
     setLoading(true);
+    setActiveScenario(kind);
     setErr(null);
 
     try {
@@ -70,39 +120,41 @@ export default function Home() {
 
       const r = await postOfferSigned(payload);
 
-      // store as "last run"
+      // store last run id
       localStorage.setItem(LS_LAST_RUN, r.run_id);
       setLastRunId(r.run_id);
 
-      // show session result immediately
-      setResultRunId(r.run_id);
-      setResultStatus(r.status);
-      setResultSummary(r.summary ?? null);
+      // fetch full run to get steps + input + evidence
+      const full = await fetchRun(r.run_id);
 
-      // reveal the decision card
-      setShowLast(false);
+      setDisplayedRunId(r.run_id);
+      setDisplayedStatus(full.run.status);
+      setDisplayedSummary(full.run.summary ?? r.summary ?? null);
+      setDisplayedInput(full.run.input ?? null);
+      setDisplayedSteps(full.steps ?? []);
+      setTab("overview");
     } catch (e: any) {
       setErr(e?.message ?? "Something went wrong");
     } finally {
       setLoading(false);
+      setActiveScenario(null);
     }
   }
 
-  async function loadLastRun() {
+  async function showLastRun() {
     if (!lastRunId) return;
     setLoading(true);
+    setActiveScenario(null);
     setErr(null);
 
     try {
-      const { run } = await fetchRun(lastRunId);
-      setLastStatus(run.status);
-      setLastSummary(run.summary ?? null);
-      setShowLast(true);
-
-      // Clear session result view (optional)
-      setResultRunId(null);
-      setResultStatus(null);
-      setResultSummary(null);
+      const full = await fetchRun(lastRunId);
+      setDisplayedRunId(lastRunId);
+      setDisplayedStatus(full.run.status);
+      setDisplayedSummary(full.run.summary ?? null);
+      setDisplayedInput(full.run.input ?? null);
+      setDisplayedSteps(full.steps ?? []);
+      setTab("overview");
     } catch (e: any) {
       setErr(e?.message ?? "Failed to load last run");
     } finally {
@@ -110,31 +162,17 @@ export default function Home() {
     }
   }
 
-  const isShowingSessionResult = Boolean(resultRunId);
-  const isShowingLast = showLast && Boolean(lastRunId);
-
-  // Data currently displayed in the big decision card
-  const displayedRunId = isShowingSessionResult ? resultRunId : isShowingLast ? lastRunId : null;
-  const displayedStatus = isShowingSessionResult ? resultStatus : isShowingLast ? lastStatus : null;
-  const displayedSummary = isShowingSessionResult ? resultSummary : isShowingLast ? lastSummary : null;
-
   const badge = statusBadge(displayedStatus ?? undefined);
 
-  useEffect(() => {
-    if (!displayedRunId) {
-      setDisplayedInput(null);
-      return;
-    }
+  // Human involvement is purely driven by run.status (robust)
+  const humanInvolvement =
+    (displayedStatus ?? "").toUpperCase() === "FLAGGED" ? "Required (ambiguity detected)" : "Not required";
 
-    // fetch run to get input and show "rules applied"
-    fetchRun(displayedRunId)
-      .then(({ run }) => setDisplayedInput(run.input))
-      .catch(() => setDisplayedInput(null));
-  }, [displayedRunId]);
+  const evidence = getEvidence(displayedSteps);
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1.2fr 0.8fr", gap: 18 }}>
-      {/* Left: RH-friendly narrative */}
+    <div style={{ display: "grid", gridTemplateColumns: "1.15fr 0.85fr", gap: 18 }}>
+      {/* LEFT */}
       <div style={cardStyle()}>
         <div style={{ fontSize: 18, fontWeight: 900, marginBottom: 6 }}>Automated onboarding decision</div>
         <div style={{ fontSize: 14, opacity: 0.8, marginBottom: 14 }}>
@@ -142,19 +180,30 @@ export default function Home() {
           actions automatically, and escalates to HR only when ambiguity is detected.
         </div>
 
+        {/* HOW IT WORKS (top, as you asked) */}
+        <div style={{ marginBottom: 12, padding: 14, borderRadius: 14, background: "rgba(0,0,0,0.04)" }}>
+          <div style={{ fontWeight: 900, marginBottom: 6 }}>How this demo works</div>
+          <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, opacity: 0.9, lineHeight: 1.5 }}>
+            <li>You trigger an <b>offer signed</b> event.</li>
+            <li>The system executes deterministic onboarding actions automatically.</li>
+            <li>HR is involved only when ambiguity is detected (FLAGGED).</li>
+          </ul>
+        </div>
+
+        {/* DEMO CONTEXT */}
+        <DemoContext input={displayedInput ?? basePayload} />
+
         {/* EMPTY STATE */}
         {!displayedRunId && (
-          <div style={{ padding: 14, borderRadius: 14, background: "rgba(0,0,0,0.04)" }}>
-            <div style={{ fontWeight: 900, marginBottom: 6 }}>No onboarding yet</div>
+          <div style={{ marginTop: 12, padding: 14, borderRadius: 14, border: "1px solid rgba(0,0,0,0.10)" }}>
+            <div style={{ fontWeight: 900, marginBottom: 6 }}>Start here</div>
             <div style={{ fontSize: 14, opacity: 0.9 }}>
-              Start by running a scenario on the right.
-              <br />
-              You’ll see whether HR needs to act, what was executed automatically, and the audit trail.
+              Run a scenario on the right to generate an onboarding decision.
             </div>
 
             {lastRunId && (
               <div style={{ marginTop: 12 }}>
-                <button onClick={loadLastRun} disabled={loading} style={ghostBtn}>
+                <button onClick={showLastRun} disabled={loading} style={ghostBtn}>
                   Show last run →
                 </button>
               </div>
@@ -162,45 +211,169 @@ export default function Home() {
           </div>
         )}
 
-        {/* DECISION CARD (only after user action OR explicit "show last") */}
+        {/* DECISION */}
         {displayedRunId && (
           <>
-            <div style={{ display: "grid", gap: 4, marginTop: 10 }}>
-              <div style={{ fontWeight: 900, fontSize: 16 }}>Ana Lopez</div>
-              <div style={{ fontSize: 13, opacity: 0.75 }}>Backend Engineer · France · Permanent</div>
-            </div>
-
-            <div style={{ marginTop: 12, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-              <span style={toneStyle(badge.tone)}>{badge.label}</span>
+            <div style={{ marginTop: 14, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+              <span style={pill(badge.tone)}>{badge.label}</span>
               {loading && <span style={{ fontSize: 13, opacity: 0.75 }}>Loading…</span>}
             </div>
 
             <div style={{ marginTop: 12, padding: 12, borderRadius: 14, background: "rgba(0,0,0,0.04)" }}>
               <div style={{ fontWeight: 900, marginBottom: 6 }}>What this means</div>
-              <div style={{ fontSize: 14, opacity: 0.9, whiteSpace: "pre-wrap" }}>
-                {displayedSummary ?? "—"}
+              <div style={{ fontSize: 14, opacity: 0.92, whiteSpace: "pre-wrap" }}>
+                {rhMeaning(displayedStatus ?? undefined, displayedInput)}
               </div>
+
+              {/* keep summary as a secondary line (if present) */}
+              {displayedSummary && (
+                <div style={{ marginTop: 8, fontSize: 13, opacity: 0.75, whiteSpace: "pre-wrap" }}>
+                  {displayedSummary}
+                </div>
+              )}
             </div>
 
+            {/* Replace big CTAs with subtle links */}
             <div style={{ marginTop: 12, display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-              <Link to={`/onboarding/${displayedRunId}`} style={primaryLink}>
-                View onboarding details →
+              <Link to={`/onboarding/${displayedRunId}`} style={secondaryLink}>
+                Open onboarding details
               </Link>
               <Link to={`/audit/${displayedRunId}`} style={secondaryLink}>
-                View execution log
+                Open audit log
               </Link>
             </div>
 
-            <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid rgba(0,0,0,0.08)" }}>
-              <div style={{ fontWeight: 900, marginBottom: 6 }}>Key outcomes</div>
-              <ul style={{ margin: 0, paddingLeft: 18, fontSize: 14, opacity: 0.9 }}>
-                <li>✅ Work account created</li>
-                <li>✅ Hardware ordered</li>
-                <li>✅ Access rights configured</li>
-              </ul>
-            </div>
+            {err && (
+              <div style={{ marginTop: 12, padding: 12, borderRadius: 12, background: "rgba(255,0,0,0.08)" }}>
+                <b>Error:</b> {err}
+              </div>
+            )}
           </>
         )}
+      </div>
+
+      {/* RIGHT PANEL */}
+      <div style={cardStyle()}>
+        <div style={{ fontSize: 16, fontWeight: 900, marginBottom: 6 }}>Simulate situations</div>
+        <div style={{ fontSize: 13, opacity: 0.75, marginBottom: 12 }}>
+          Run one scenario to generate an onboarding decision.
+        </div>
+
+        <ScenarioButton
+          title="Standard onboarding"
+          subtitle="Expected: no action required"
+          icon="▶️"
+          disabled={loading}
+          active={activeScenario === "standard"}
+          onClick={() => runScenario("standard")}
+        />
+
+        <ScenarioButton
+          title="Unknown role → requires HR review"
+          subtitle="Expected: Human review required"
+          icon="⚠️"
+          disabled={loading}
+          active={activeScenario === "flagged"}
+          onClick={() => runScenario("flagged")}
+        />
+
+        <ScenarioButton
+          title="IT issue → partial completion"
+          subtitle="Expected: Partial completion"
+          icon="🔧"
+          disabled={loading}
+          active={activeScenario === "partial"}
+          onClick={() => runScenario("partial")}
+        />
+
+        {/* Panel tabs */}
+        <div style={{ marginTop: 14, display: "flex", gap: 10 }}>
+          <button onClick={() => setTab("overview")} style={tabBtn(tab === "overview")}>
+            Overview
+          </button>
+          <button onClick={() => setTab("journal")} style={tabBtn(tab === "journal")}>
+            Journal
+          </button>
+        </div>
+
+        {/* Panel content */}
+        <div style={{ marginTop: 12 }}>
+          {!displayedRunId && (
+            <div style={{ fontSize: 13, opacity: 0.8 }}>
+              After running a scenario, you’ll see evidence (outputs) and a simplified journal here.
+            </div>
+          )}
+
+          {displayedRunId && tab === "overview" && (
+            <div style={{ display: "grid", gap: 12 }}>
+              <div style={{ padding: 12, borderRadius: 14, border: "1px solid rgba(0,0,0,0.10)" }}>
+                <div style={{ fontWeight: 900, marginBottom: 6 }}>Decision rules applied</div>
+                <div style={{ display: "grid", gap: 8, fontSize: 13, opacity: 0.9 }}>
+                  <RuleRow label="Country" value={displayedInput?.employment?.country ?? "—"} />
+                  <RuleRow label="Department" value={displayedInput?.job?.department ?? "—"} />
+                  <RuleRow label="Contract type" value={displayedInput?.employment?.contract_type ?? "—"} />
+                  <RuleRow label="Role" value={displayedInput?.job?.title ?? "—"} />
+                  <RuleRow label="Human involvement" value={humanInvolvement} />
+                </div>
+              </div>
+
+              <div style={{ padding: 12, borderRadius: 14, border: "1px solid rgba(0,0,0,0.10)" }}>
+                <div style={{ fontWeight: 900, marginBottom: 6 }}>Evidence</div>
+
+                <EvidenceBlock
+                  title="Work account"
+                  status={evidence.accounts ? "Completed" : "—"}
+                  lines={[
+                    evidence.accounts?.account?.username ? `Username: ${evidence.accounts.account.username}` : null,
+                    evidence.accounts?.action_id ? `Action ID: ${evidence.accounts.action_id}` : null,
+                  ]}
+                />
+
+                <EvidenceBlock
+                  title="Hardware"
+                  status={evidence.hardware ? "Completed" : "—"}
+                  lines={[
+                    evidence.hardware?.bundle ? `Bundle: ${evidence.hardware.bundle}` : null,
+                    evidence.hardware?.ticket_id ? `Order/Ticket: ${evidence.hardware.ticket_id}` : null,
+                  ]}
+                />
+
+                <EvidenceBlock
+                  title="Access rights"
+                  status={evidence.access ? "Completed" : "—"}
+                  lines={[
+                    Array.isArray(evidence.access?.accesses)
+                      ? `Services: ${evidence.access.accesses.join(", ")}`
+                      : null,
+                  ]}
+                />
+              </div>
+            </div>
+          )}
+
+          {displayedRunId && tab === "journal" && (
+            <div style={{ padding: 12, borderRadius: 14, border: "1px solid rgba(0,0,0,0.10)" }}>
+              <div style={{ fontWeight: 900, marginBottom: 6 }}>Journal</div>
+              <div style={{ fontSize: 13, opacity: 0.8, marginBottom: 10 }}>
+                Human-readable timeline of what happened.
+              </div>
+
+              <div style={{ display: "grid", gap: 8 }}>
+                {displayedSteps.length === 0 && <div style={{ fontSize: 13, opacity: 0.8 }}>No steps logged yet.</div>}
+                {displayedSteps.map((s) => (
+                  <div key={s.id} style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                    <div style={{ fontWeight: 800 }}>{s.step}</div>
+                    <div style={{ fontWeight: 900 }}>{s.status}</div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ marginTop: 10, fontSize: 12, opacity: 0.7 }}>
+                (Full audit labels are available in the Audit page.)
+              </div>
+            </div>
+          )}
+        </div>
 
         {err && (
           <div style={{ marginTop: 12, padding: 12, borderRadius: 12, background: "rgba(255,0,0,0.08)" }}>
@@ -208,75 +381,81 @@ export default function Home() {
           </div>
         )}
       </div>
-
-      {/* Right: simulations */}
-      <div style={cardStyle()}>
-        <div style={{ fontSize: 16, fontWeight: 900, marginBottom: 6 }}>Simulate situations</div>
-        <div style={{ fontSize: 13, opacity: 0.75, marginBottom: 12 }}>
-          Run one scenario to generate an onboarding decision.
-        </div>
-
-        <button style={scenarioBtn} disabled={loading} onClick={() => runScenario("standard")}>
-          ▶️ Standard onboarding
-          <div style={scenarioSub}>Expected: no action required</div>
-        </button>
-
-        <button style={scenarioBtn} disabled={loading} onClick={() => runScenario("flagged")}>
-          ⚠️ Unknown role → requires HR review
-          <div style={scenarioSub}>Expected: Human review required</div>
-        </button>
-
-        <button style={scenarioBtn} disabled={loading} onClick={() => runScenario("partial")}>
-          🔧 IT issue → partial completion
-          <div style={scenarioSub}>Expected: Partial completion</div>
-        </button>
-
-        <div style={{ marginTop: 12, padding: 12, borderRadius: 14, background: "rgba(0,0,0,0.04)" }}>
-          <div style={{ fontWeight: 900, marginBottom: 6 }}>How this demo works</div>
-          <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, opacity: 0.9 }}>
-            <li>You trigger an <b>offer signed</b> event.</li>
-            <li>The system executes deterministic onboarding actions automatically.</li>
-            <li>HR is involved only when ambiguity is detected (FLAGGED).</li>
-          </ul>
-        </div>
-
-        <div style={{ marginTop: 12, padding: 12, borderRadius: 14, border: "1px solid rgba(0,0,0,0.10)" }}>
-          <div style={{ fontWeight: 900, marginBottom: 6 }}>Decision rules applied</div>
-
-          {!displayedRunId && (
-            <div style={{ fontSize: 13, opacity: 0.8 }}>
-              Run a scenario to see which rules were applied (country, department, contract type).
-            </div>
-          )}
-
-          {displayedRunId && displayedInput && (
-            <div style={{ display: "grid", gap: 8, fontSize: 13, opacity: 0.9 }}>
-              <RuleRow label="Country" value={displayedInput?.employment?.country ?? "—"} />
-              <RuleRow label="Department" value={displayedInput?.job?.department ?? "—"} />
-              <RuleRow label="Contract type" value={displayedInput?.employment?.contract_type ?? "—"} />
-              <RuleRow label="Role" value={displayedInput?.job?.title ?? "—"} />
-              <RuleRow
-                label="Human involvement"
-                value={(displayedStatus ?? "").toUpperCase() === "FLAGGED" ? "Required (ambiguity detected)" : "Not required"}
-              />
-            </div>
-          )}
-        </div>
-      </div>
     </div>
   );
 }
 
-const primaryLink: React.CSSProperties = {
-  display: "inline-block",
-  padding: "10px 12px",
-  borderRadius: 12,
-  border: "1px solid rgba(0,0,0,0.12)",
-  textDecoration: "none",
-  color: "inherit",
-  fontWeight: 900,
-  background: "white",
-};
+function ScenarioButton({
+  title,
+  subtitle,
+  icon,
+  disabled,
+  active,
+  onClick,
+}: {
+  title: string;
+  subtitle: string;
+  icon: string;
+  disabled: boolean;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      style={{
+        width: "100%",
+        textAlign: "left",
+        padding: 14,
+        borderRadius: 14,
+        border: "1px solid rgba(0,0,0,0.12)",
+        background: "white",
+        cursor: disabled ? "not-allowed" : "pointer",
+        fontWeight: 900,
+        marginBottom: 10,
+        opacity: disabled && !active ? 0.7 : 1,
+      }}
+      disabled={disabled}
+      onClick={onClick}
+    >
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+        <div>
+          <span style={{ marginRight: 8 }}>{icon}</span>
+          {title}
+          <div style={{ fontSize: 12, opacity: 0.7, fontWeight: 700, marginTop: 6 }}>{subtitle}</div>
+        </div>
+        {active && <div style={{ fontSize: 12, opacity: 0.8, fontWeight: 900 }}>Running…</div>}
+      </div>
+    </button>
+  );
+}
+
+function RuleRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+      <div style={{ fontWeight: 800, opacity: 0.85 }}>{label}</div>
+      <div style={{ fontWeight: 900, textAlign: "right" }}>{value}</div>
+    </div>
+  );
+}
+
+function EvidenceBlock({ title, status, lines }: { title: string; status: string; lines: Array<string | null> }) {
+  const filtered = lines.filter(Boolean) as string[];
+  return (
+    <div style={{ padding: 10, borderRadius: 12, background: "rgba(0,0,0,0.04)", marginTop: 10 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+        <div style={{ fontWeight: 900 }}>{title}</div>
+        <div style={{ fontWeight: 900, opacity: 0.85 }}>{status}</div>
+      </div>
+      {filtered.length > 0 && (
+        <ul style={{ margin: "8px 0 0 0", paddingLeft: 18, fontSize: 13, opacity: 0.9 }}>
+          {filtered.map((t, i) => (
+            <li key={i}>{t}</li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
 
 const secondaryLink: React.CSSProperties = {
   display: "inline-block",
@@ -298,30 +477,14 @@ const ghostBtn: React.CSSProperties = {
   fontWeight: 800,
 };
 
-const scenarioBtn: React.CSSProperties = {
-  width: "100%",
-  textAlign: "left",
-  padding: 14,
-  borderRadius: 14,
-  border: "1px solid rgba(0,0,0,0.12)",
-  background: "white",
-  cursor: "pointer",
-  fontWeight: 900,
-  marginBottom: 10,
-};
-
-const scenarioSub: React.CSSProperties = {
-  fontSize: 12,
-  opacity: 0.7,
-  fontWeight: 700,
-  marginTop: 6,
-};
-
-function RuleRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-      <div style={{ fontWeight: 800, opacity: 0.85 }}>{label}</div>
-      <div style={{ fontWeight: 900 }}>{value}</div>
-    </div>
-  );
+function tabBtn(active: boolean): React.CSSProperties {
+  return {
+    flex: 1,
+    padding: "10px 12px",
+    borderRadius: 12,
+    border: "1px solid rgba(0,0,0,0.12)",
+    background: active ? "rgba(0,0,0,0.06)" : "white",
+    cursor: "pointer",
+    fontWeight: 900,
+  };
 }
