@@ -16,25 +16,23 @@ function cardStyle(): React.CSSProperties {
 
 export default function Home() {
   const [loading, setLoading] = useState(false);
+
+  // "result" = le run déclenché pendant cette session (après click)
+  const [resultRunId, setResultRunId] = useState<string | null>(null);
+  const [resultStatus, setResultStatus] = useState<string | null>(null);
+  const [resultSummary, setResultSummary] = useState<string | null>(null);
+
+  // last run = persistance, mais on ne l'affiche pas automatiquement
   const [lastRunId, setLastRunId] = useState<string | null>(null);
   const [lastStatus, setLastStatus] = useState<string | null>(null);
   const [lastSummary, setLastSummary] = useState<string | null>(null);
+
+  const [showLast, setShowLast] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem(LS_LAST_RUN);
-    if (saved) {
-      setLastRunId(saved);
-      // best-effort fetch to show status/summary
-      fetchRun(saved)
-        .then(({ run }) => {
-          setLastStatus(run.status);
-          setLastSummary(run.summary);
-        })
-        .catch(() => {
-          // ignore; the run may have expired/been cleaned
-        });
-    }
+    if (saved) setLastRunId(saved);
   }, []);
 
   const basePayload: OfferSignedPayload = useMemo(
@@ -70,10 +68,17 @@ export default function Home() {
 
       const r = await postOfferSigned(payload);
 
+      // store as "last run"
       localStorage.setItem(LS_LAST_RUN, r.run_id);
       setLastRunId(r.run_id);
-      setLastStatus(r.status);
-      setLastSummary(r.summary ?? null);
+
+      // show session result immediately
+      setResultRunId(r.run_id);
+      setResultStatus(r.status);
+      setResultSummary(r.summary ?? null);
+
+      // reveal the decision card
+      setShowLast(false);
     } catch (e: any) {
       setErr(e?.message ?? "Something went wrong");
     } finally {
@@ -81,72 +86,120 @@ export default function Home() {
     }
   }
 
-  const badge = statusBadge(lastStatus ?? undefined);
+  async function loadLastRun() {
+    if (!lastRunId) return;
+    setLoading(true);
+    setErr(null);
+
+    try {
+      const { run } = await fetchRun(lastRunId);
+      setLastStatus(run.status);
+      setLastSummary(run.summary ?? null);
+      setShowLast(true);
+
+      // Clear session result view (optional)
+      setResultRunId(null);
+      setResultStatus(null);
+      setResultSummary(null);
+    } catch (e: any) {
+      setErr(e?.message ?? "Failed to load last run");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const isShowingSessionResult = Boolean(resultRunId);
+  const isShowingLast = showLast && Boolean(lastRunId);
+
+  // Data currently displayed in the big decision card
+  const displayedRunId = isShowingSessionResult ? resultRunId : isShowingLast ? lastRunId : null;
+  const displayedStatus = isShowingSessionResult ? resultStatus : isShowingLast ? lastStatus : null;
+  const displayedSummary = isShowingSessionResult ? resultSummary : isShowingLast ? lastSummary : null;
+
+  const badge = statusBadge(displayedStatus ?? undefined);
 
   return (
     <div style={{ display: "grid", gridTemplateColumns: "1.2fr 0.8fr", gap: 18 }}>
-      {/* Left: Latest decision */}
+      {/* Left: RH-friendly narrative */}
       <div style={cardStyle()}>
-        <div style={{ fontSize: 18, fontWeight: 900, marginBottom: 6 }}>Latest onboarding decision</div>
+        <div style={{ fontSize: 18, fontWeight: 900, marginBottom: 6 }}>Automated onboarding decision</div>
         <div style={{ fontSize: 14, opacity: 0.8, marginBottom: 14 }}>
-          A new hire just signed their offer. The system decides and executes deterministic onboarding actions automatically.
+          This demo simulates what happens after a new hire signs an offer. The system executes deterministic onboarding
+          actions automatically, and escalates to HR only when ambiguity is detected.
         </div>
 
-        {/* Employee card (static for demo) */}
-        <div style={{ display: "grid", gap: 4, marginBottom: 12 }}>
-          <div style={{ fontWeight: 900, fontSize: 16 }}>Ana Lopez</div>
-          <div style={{ fontSize: 13, opacity: 0.75 }}>Backend Engineer · France · Permanent</div>
-        </div>
+        {/* EMPTY STATE */}
+        {!displayedRunId && (
+          <div style={{ padding: 14, borderRadius: 14, background: "rgba(0,0,0,0.04)" }}>
+            <div style={{ fontWeight: 900, marginBottom: 6 }}>No onboarding yet</div>
+            <div style={{ fontSize: 14, opacity: 0.9 }}>
+              Start by running a scenario on the right.
+              <br />
+              You’ll see whether HR needs to act, what was executed automatically, and the audit trail.
+            </div>
 
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-          <span style={toneStyle(badge.tone)}>{badge.label}</span>
-          {loading && <span style={{ fontSize: 13, opacity: 0.75 }}>Running…</span>}
-        </div>
-
-        <div style={{ marginTop: 12, padding: 12, borderRadius: 14, background: "rgba(0,0,0,0.04)" }}>
-          <div style={{ fontWeight: 900, marginBottom: 6 }}>What this means</div>
-          <div style={{ fontSize: 14, opacity: 0.9, whiteSpace: "pre-wrap" }}>
-            {lastSummary ??
-              "Trigger a scenario to see how the system behaves. The goal is simple: be Day 1 ready with no manual coordination."}
+            {lastRunId && (
+              <div style={{ marginTop: 12 }}>
+                <button onClick={loadLastRun} disabled={loading} style={ghostBtn}>
+                  Show last run →
+                </button>
+              </div>
+            )}
           </div>
-        </div>
+        )}
 
-        <div style={{ marginTop: 12, display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-          {lastRunId ? (
-            <>
-              <Link to={`/onboarding/${lastRunId}`} style={primaryLink}>
+        {/* DECISION CARD (only after user action OR explicit "show last") */}
+        {displayedRunId && (
+          <>
+            <div style={{ display: "grid", gap: 4, marginTop: 10 }}>
+              <div style={{ fontWeight: 900, fontSize: 16 }}>Ana Lopez</div>
+              <div style={{ fontSize: 13, opacity: 0.75 }}>Backend Engineer · France · Permanent</div>
+            </div>
+
+            <div style={{ marginTop: 12, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+              <span style={toneStyle(badge.tone)}>{badge.label}</span>
+              {loading && <span style={{ fontSize: 13, opacity: 0.75 }}>Loading…</span>}
+            </div>
+
+            <div style={{ marginTop: 12, padding: 12, borderRadius: 14, background: "rgba(0,0,0,0.04)" }}>
+              <div style={{ fontWeight: 900, marginBottom: 6 }}>What this means</div>
+              <div style={{ fontSize: 14, opacity: 0.9, whiteSpace: "pre-wrap" }}>
+                {displayedSummary ?? "—"}
+              </div>
+            </div>
+
+            <div style={{ marginTop: 12, display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+              <Link to={`/onboarding/${displayedRunId}`} style={primaryLink}>
                 View onboarding details →
               </Link>
-              <Link to={`/audit/${lastRunId}`} style={secondaryLink}>
+              <Link to={`/audit/${displayedRunId}`} style={secondaryLink}>
                 View execution log
               </Link>
-            </>
-          ) : (
-            <span style={{ fontSize: 13, opacity: 0.75 }}>No run yet.</span>
-          )}
-        </div>
+            </div>
+
+            <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid rgba(0,0,0,0.08)" }}>
+              <div style={{ fontWeight: 900, marginBottom: 6 }}>Key outcomes</div>
+              <ul style={{ margin: 0, paddingLeft: 18, fontSize: 14, opacity: 0.9 }}>
+                <li>✅ Work account created</li>
+                <li>✅ Hardware ordered</li>
+                <li>✅ Access rights configured</li>
+              </ul>
+            </div>
+          </>
+        )}
 
         {err && (
           <div style={{ marginTop: 12, padding: 12, borderRadius: 12, background: "rgba(255,0,0,0.08)" }}>
             <b>Error:</b> {err}
           </div>
         )}
-
-        <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid rgba(0,0,0,0.08)" }}>
-          <div style={{ fontWeight: 900, marginBottom: 6 }}>Key outcomes</div>
-          <ul style={{ margin: 0, paddingLeft: 18, fontSize: 14, opacity: 0.9 }}>
-            <li>✅ Work account created</li>
-            <li>✅ Hardware ordered</li>
-            <li>✅ Access rights configured</li>
-          </ul>
-        </div>
       </div>
 
       {/* Right: simulations */}
       <div style={cardStyle()}>
-        <div style={{ fontSize: 16, fontWeight: 900, marginBottom: 6 }}>Simulate other situations</div>
+        <div style={{ fontSize: 16, fontWeight: 900, marginBottom: 6 }}>Simulate situations</div>
         <div style={{ fontSize: 13, opacity: 0.75, marginBottom: 12 }}>
-          See how the system behaves when ambiguity or failures occur.
+          Run one scenario to generate an onboarding decision.
         </div>
 
         <button style={scenarioBtn} disabled={loading} onClick={() => runScenario("standard")}>
@@ -163,6 +216,11 @@ export default function Home() {
           🔧 IT issue → partial completion
           <div style={scenarioSub}>Expected: Partial completion</div>
         </button>
+
+        <div style={{ marginTop: 12, fontSize: 12, opacity: 0.7 }}>
+          Tip: The execution log is available after running a scenario, but it’s secondary. The main goal is clarity: do
+          you need to act, or did the system handle everything?
+        </div>
       </div>
     </div>
   );
@@ -188,6 +246,15 @@ const secondaryLink: React.CSSProperties = {
   color: "inherit",
   fontWeight: 800,
   opacity: 0.9,
+};
+
+const ghostBtn: React.CSSProperties = {
+  padding: "10px 12px",
+  borderRadius: 12,
+  border: "1px solid rgba(0,0,0,0.12)",
+  background: "white",
+  cursor: "pointer",
+  fontWeight: 800,
 };
 
 const scenarioBtn: React.CSSProperties = {
