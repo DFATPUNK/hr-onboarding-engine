@@ -38,10 +38,6 @@ export default async function handler(req: any, res: any) {
   }
 
   const supabase = getSupabaseAdmin();
-
-  // ⚠️ Mets ici le nom EXACT de ta table steps :
-  // - si ta table s'appelle "run_steps" laisse comme ça
-  // - si elle s'appelle "runs_steps" remplace
   const STEPS_TABLE = "run_steps";
 
   const { error } = await supabase.from(STEPS_TABLE).insert({
