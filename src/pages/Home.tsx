@@ -1,33 +1,44 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { postOfferSigned, type DemoResponse, type OfferSignedPayload } from "../lib/api";
+import { postOfferSigned, fetchRun, type OfferSignedPayload } from "../lib/api";
+import { statusBadge, toneStyle } from "../lib/rh";
 
-function badgeStyle(status?: string) {
-  const base: React.CSSProperties = {
-    display: "inline-block",
-    padding: "4px 10px",
-    borderRadius: 999,
-    fontSize: 12,
-    fontWeight: 700,
+const LS_LAST_RUN = "hr_onboarding_last_run_id";
+
+function cardStyle(): React.CSSProperties {
+  return {
     border: "1px solid rgba(0,0,0,0.12)",
+    borderRadius: 18,
+    padding: 18,
+    background: "white",
   };
-  if (!status) return base;
-  const s = status.toUpperCase();
-  if (s === "SUCCESS") return { ...base, background: "rgba(0, 200, 0, 0.10)" };
-  if (s === "FLAGGED") return { ...base, background: "rgba(255, 180, 0, 0.18)" };
-  if (s === "PARTIAL") return { ...base, background: "rgba(255, 180, 0, 0.18)" };
-  if (s === "FAILED") return { ...base, background: "rgba(255, 0, 0, 0.10)" };
-  return base;
 }
 
 export default function Home() {
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<DemoResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [lastRunId, setLastRunId] = useState<string | null>(null);
+  const [lastStatus, setLastStatus] = useState<string | null>(null);
+  const [lastSummary, setLastSummary] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    const saved = localStorage.getItem(LS_LAST_RUN);
+    if (saved) {
+      setLastRunId(saved);
+      // best-effort fetch to show status/summary
+      fetchRun(saved)
+        .then(({ run }) => {
+          setLastStatus(run.status);
+          setLastSummary(run.summary);
+        })
+        .catch(() => {
+          // ignore; the run may have expired/been cleaned
+        });
+    }
+  }, []);
 
   const basePayload: OfferSignedPayload = useMemo(
     () => ({
-      // event_id unique à chaque click (évite l’idempotence)
       event_id: `evt_demo_${Date.now()}`,
       candidate: { first_name: "Ana", last_name: "Lopez", email: "ana.lopez@alan-demo.com" },
       job: { title: "Backend Engineer", department: "Engineering", level: "B2" },
@@ -37,139 +48,138 @@ export default function Home() {
     []
   );
 
-  async function runScenario(scenario: OfferSignedPayload["scenario"]) {
+  async function runScenario(kind: "standard" | "flagged" | "partial") {
     setLoading(true);
-    setError(null);
-    setResult(null);
+    setErr(null);
 
     try {
       const payload: OfferSignedPayload = {
         ...basePayload,
-        event_id: `evt_demo_${Date.now()}`, // unique
-        scenario: scenario ?? {},
+        event_id: `evt_demo_${Date.now()}`,
+        scenario:
+          kind === "standard"
+            ? { standard: true, unknown_role: false, simulate_it_failure: false }
+            : kind === "flagged"
+              ? { unknown_role: true, simulate_it_failure: false }
+              : { standard: true, simulate_it_failure: true },
       };
 
-      // Pour unknown role, on rend le titre volontairement "weird"
-      if (scenario?.unknown_role) {
-        payload.job = { ...payload.job, title: "Quantum HR Wizard", department: "People", level: "C1" };
+      if (kind === "flagged") {
+        payload.job = { title: "Quantum HR Wizard", department: "People", level: "C1" };
       }
 
       const r = await postOfferSigned(payload);
-      setResult(r);
+
+      localStorage.setItem(LS_LAST_RUN, r.run_id);
+      setLastRunId(r.run_id);
+      setLastStatus(r.status);
+      setLastSummary(r.summary ?? null);
     } catch (e: any) {
-      setError(e?.message ?? "Something went wrong");
+      setErr(e?.message ?? "Something went wrong");
     } finally {
       setLoading(false);
     }
   }
 
+  const badge = statusBadge(lastStatus ?? undefined);
+
   return (
-    <div>
-      <section
-        style={{
-          border: "1px solid rgba(0,0,0,0.12)",
-          borderRadius: 16,
-          padding: 18,
-          marginBottom: 18,
-        }}
-      >
-        <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 6 }}>Run the demo</div>
+    <div style={{ display: "grid", gridTemplateColumns: "1.2fr 0.8fr", gap: 18 }}>
+      {/* Left: Latest decision */}
+      <div style={cardStyle()}>
+        <div style={{ fontSize: 18, fontWeight: 900, marginBottom: 6 }}>Latest onboarding decision</div>
         <div style={{ fontSize: 14, opacity: 0.8, marginBottom: 14 }}>
-          This triggers an <b>OfferSigned</b> event. The system decides and executes deterministic onboarding actions automatically, then writes an audit log.
+          A new hire just signed their offer. The system decides and executes deterministic onboarding actions automatically.
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
-          <button
-            onClick={() => runScenario({ standard: true, unknown_role: false, simulate_it_failure: false })}
-            disabled={loading}
-            style={btnStyle}
-          >
-            ▶️ Standard onboarding
-            <div style={btnSub}>Expected: SUCCESS</div>
-          </button>
-
-          <button
-            onClick={() => runScenario({ unknown_role: true, simulate_it_failure: false })}
-            disabled={loading}
-            style={btnStyle}
-          >
-            ⚠️ Unknown role → flagged
-            <div style={btnSub}>Expected: FLAGGED</div>
-          </button>
-
-          <button
-            onClick={() => runScenario({ standard: true, simulate_it_failure: true })}
-            disabled={loading}
-            style={btnStyle}
-          >
-            🔧 IT failure → partial
-            <div style={btnSub}>Expected: PARTIAL</div>
-          </button>
+        {/* Employee card (static for demo) */}
+        <div style={{ display: "grid", gap: 4, marginBottom: 12 }}>
+          <div style={{ fontWeight: 900, fontSize: 16 }}>Ana Lopez</div>
+          <div style={{ fontSize: 13, opacity: 0.75 }}>Backend Engineer · France · Permanent</div>
         </div>
-      </section>
 
-      <section style={{ border: "1px solid rgba(0,0,0,0.12)", borderRadius: 16, padding: 18 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-          <div style={{ fontSize: 16, fontWeight: 800 }}>Result</div>
-          {result?.status && <span style={badgeStyle(result.status)}>{result.status}</span>}
+          <span style={toneStyle(badge.tone)}>{badge.label}</span>
+          {loading && <span style={{ fontSize: 13, opacity: 0.75 }}>Running…</span>}
         </div>
 
-        {loading && <div style={{ marginTop: 12, opacity: 0.75 }}>Running…</div>}
-
-        {error && (
-          <div style={{ marginTop: 12, padding: 12, borderRadius: 12, background: "rgba(255,0,0,0.08)" }}>
-            <b>Error:</b> {error}
+        <div style={{ marginTop: 12, padding: 12, borderRadius: 14, background: "rgba(0,0,0,0.04)" }}>
+          <div style={{ fontWeight: 900, marginBottom: 6 }}>What this means</div>
+          <div style={{ fontSize: 14, opacity: 0.9, whiteSpace: "pre-wrap" }}>
+            {lastSummary ??
+              "Trigger a scenario to see how the system behaves. The goal is simple: be Day 1 ready with no manual coordination."}
           </div>
-        )}
+        </div>
 
-        {!loading && !error && !result && (
-          <div style={{ marginTop: 12, opacity: 0.7 }}>
-            Click a scenario above to trigger an onboarding run.
-          </div>
-        )}
-
-        {result && (
-          <div style={{ marginTop: 12 }}>
-            <div style={{ fontSize: 14, opacity: 0.85 }}>
-              <b>Run ID:</b> {result.run_id}
-            </div>
-
-            <div style={{ marginTop: 10, padding: 12, borderRadius: 12, background: "rgba(0,0,0,0.04)" }}>
-              <div style={{ fontWeight: 700, marginBottom: 6 }}>Summary</div>
-              <div style={{ whiteSpace: "pre-wrap" }}>{result.summary ?? "—"}</div>
-            </div>
-
-            <div style={{ marginTop: 12, display: "flex", gap: 12, alignItems: "center" }}>
-              <Link to={`/runs/${result.run_id}`} style={linkBtnStyle}>
-                View run log →
+        <div style={{ marginTop: 12, display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+          {lastRunId ? (
+            <>
+              <Link to={`/onboarding/${lastRunId}`} style={primaryLink}>
+                View onboarding details →
               </Link>
-              {result.deduped && <span style={{ fontSize: 12, opacity: 0.75 }}>Deduped by event_id</span>}
-            </div>
+              <Link to={`/audit/${lastRunId}`} style={secondaryLink}>
+                View execution log
+              </Link>
+            </>
+          ) : (
+            <span style={{ fontSize: 13, opacity: 0.75 }}>No run yet.</span>
+          )}
+        </div>
+
+        {err && (
+          <div style={{ marginTop: 12, padding: 12, borderRadius: 12, background: "rgba(255,0,0,0.08)" }}>
+            <b>Error:</b> {err}
           </div>
         )}
-      </section>
+
+        <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid rgba(0,0,0,0.08)" }}>
+          <div style={{ fontWeight: 900, marginBottom: 6 }}>Key outcomes</div>
+          <ul style={{ margin: 0, paddingLeft: 18, fontSize: 14, opacity: 0.9 }}>
+            <li>✅ Work account created</li>
+            <li>✅ Hardware ordered</li>
+            <li>✅ Access rights configured</li>
+          </ul>
+        </div>
+      </div>
+
+      {/* Right: simulations */}
+      <div style={cardStyle()}>
+        <div style={{ fontSize: 16, fontWeight: 900, marginBottom: 6 }}>Simulate other situations</div>
+        <div style={{ fontSize: 13, opacity: 0.75, marginBottom: 12 }}>
+          See how the system behaves when ambiguity or failures occur.
+        </div>
+
+        <button style={scenarioBtn} disabled={loading} onClick={() => runScenario("standard")}>
+          ▶️ Standard onboarding
+          <div style={scenarioSub}>Expected: no action required</div>
+        </button>
+
+        <button style={scenarioBtn} disabled={loading} onClick={() => runScenario("flagged")}>
+          ⚠️ Unknown role → requires HR review
+          <div style={scenarioSub}>Expected: Human review required</div>
+        </button>
+
+        <button style={scenarioBtn} disabled={loading} onClick={() => runScenario("partial")}>
+          🔧 IT issue → partial completion
+          <div style={scenarioSub}>Expected: Partial completion</div>
+        </button>
+      </div>
     </div>
   );
 }
 
-const btnStyle: React.CSSProperties = {
-  textAlign: "left",
-  padding: 14,
-  borderRadius: 14,
+const primaryLink: React.CSSProperties = {
+  display: "inline-block",
+  padding: "10px 12px",
+  borderRadius: 12,
   border: "1px solid rgba(0,0,0,0.12)",
+  textDecoration: "none",
+  color: "inherit",
+  fontWeight: 900,
   background: "white",
-  cursor: "pointer",
-  fontWeight: 800,
 };
 
-const btnSub: React.CSSProperties = {
-  fontSize: 12,
-  opacity: 0.7,
-  fontWeight: 600,
-  marginTop: 6,
-};
-
-const linkBtnStyle: React.CSSProperties = {
+const secondaryLink: React.CSSProperties = {
   display: "inline-block",
   padding: "10px 12px",
   borderRadius: 12,
@@ -177,4 +187,24 @@ const linkBtnStyle: React.CSSProperties = {
   textDecoration: "none",
   color: "inherit",
   fontWeight: 800,
+  opacity: 0.9,
+};
+
+const scenarioBtn: React.CSSProperties = {
+  width: "100%",
+  textAlign: "left",
+  padding: 14,
+  borderRadius: 14,
+  border: "1px solid rgba(0,0,0,0.12)",
+  background: "white",
+  cursor: "pointer",
+  fontWeight: 900,
+  marginBottom: 10,
+};
+
+const scenarioSub: React.CSSProperties = {
+  fontSize: 12,
+  opacity: 0.7,
+  fontWeight: 700,
+  marginTop: 6,
 };
