@@ -41,3 +41,23 @@
 .read-the-docs {
   color: #888;
 }
+
+/* Page layout: full viewport */
+.app-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Main grid area takes remaining height under header */
+.app-main {
+  flex: 1;
+  min-height: 0; /* critical for nested overflow */
+}
+
+/* Cards become scroll containers instead of pushing page */
+.panel {
+  min-height: 0;         /* critical */
+  height: 100%;
+  overflow: auto;
+}
