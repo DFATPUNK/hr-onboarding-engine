@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { postOfferSigned, fetchRun, type OfferSignedPayload, type RunStep } from "../lib/api";
+import { postOfferSigned, fetchRun, type OfferSignedPayload } from "../lib/api";
 import { statusBadge, toneStyle } from "../lib/rh";
-import { findStep, getEvidence } from "../lib/steps";
 import { OnboardingDetailsView } from "./OnboardingDetails";
 import { AuditLogView } from "./AuditLog";
 
@@ -88,7 +87,6 @@ export default function Home() {
 
   const [runId, setRunId] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
-  const [steps, setSteps] = useState<RunStep[]>([]);
 
   useEffect(() => {
     const saved = localStorage.getItem(LS_LAST_RUN);
@@ -132,7 +130,6 @@ export default function Home() {
 
       setRunId(res.run_id);
       setStatus(full.run.status);
-      setSteps(full.steps);
       setDetailsOpen(true);
       setLeftView("onboarding");
     } finally {
