@@ -88,7 +88,6 @@ export default function Home() {
 
   const [runId, setRunId] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
-  const [input, setInput] = useState<any>(null);
   const [steps, setSteps] = useState<RunStep[]>([]);
 
   useEffect(() => {
@@ -133,7 +132,6 @@ export default function Home() {
 
       setRunId(res.run_id);
       setStatus(full.run.status);
-      setInput(full.run.input);
       setSteps(full.steps);
       setDetailsOpen(true);
       setLeftView("onboarding");
@@ -143,13 +141,6 @@ export default function Home() {
   }
 
   const badge = statusBadge(status ?? undefined);
-  const evidence = getEvidence(steps);
-
-  const hardwareStep = findStep(steps, "PROVISION_HARDWARE");
-  const hardwareStatus =
-    hardwareStep?.status === "FAILED" || hardwareStep?.status === "FAILURE"
-      ? "Failed"
-      : "Completed";
 
   /* ---------------------------------- layout ---------------------------------- */
 
