@@ -14,6 +14,14 @@ function card(): React.CSSProperties {
 
 export default function OnboardingDetails() {
   const { runId } = useParams();
+  return <OnboardingDetailsView runId={runId} />;
+}
+
+/**
+ * Reusable view used both as a standalone page and as an embedded panel on the Home screen.
+ * IMPORTANT: keep the UI identical to preserve the "perfect" look of the page.
+ */
+export function OnboardingDetailsView({ runId, embedded }: { runId?: string; embedded?: boolean }) {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [run, setRun] = useState<any>(null);
@@ -38,18 +46,24 @@ export default function OnboardingDetails() {
 
   return (
     <div style={{ display: "grid", gap: 18 }}>
-      <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-        <Link to="/" style={{ fontSize: 14 }}>← Back</Link>
-        {runId && <Link to={`/audit/${runId}`} style={{ fontSize: 14 }}>View execution log</Link>}
-      </div>
+      {!embedded && (
+        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+          <Link to="/" style={{ fontSize: 14 }}>
+            ← Back
+          </Link>
+          {runId && (
+            <Link to={`/audit/${runId}`} style={{ fontSize: 14 }}>
+              View audit log
+            </Link>
+          )}
+        </div>
+      )}
 
       <div style={card()}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
           <div>
             <div style={{ fontSize: 18, fontWeight: 900 }}>Onboarding details</div>
-            <div style={{ fontSize: 13, opacity: 0.75 }}>
-              What the system did — and whether HR needs to act.
-            </div>
+            <div style={{ fontSize: 13, opacity: 0.75 }}>What the system did — and whether HR needs to act.</div>
           </div>
           <span style={toneStyle(badge.tone)}>{badge.label}</span>
         </div>
@@ -63,7 +77,6 @@ export default function OnboardingDetails() {
 
         {!loading && !err && run && (
           <>
-            {/* Employee card (read from run input if present; fallback to demo persona) */}
             <div style={{ marginTop: 14, padding: 12, borderRadius: 14, background: "rgba(0,0,0,0.04)" }}>
               <div style={{ fontWeight: 900, fontSize: 16 }}>
                 {run?.input?.candidate?.first_name ?? "Ana"} {run?.input?.candidate?.last_name ?? "Lopez"}
@@ -77,18 +90,14 @@ export default function OnboardingDetails() {
               </div>
             </div>
 
-            {/* Decision block */}
             <div style={{ marginTop: 14 }}>
               <div style={{ fontWeight: 900, marginBottom: 6 }}>Decision</div>
-              <div style={{ fontSize: 14, opacity: 0.9, whiteSpace: "pre-wrap" }}>
-                {run.summary ?? "—"}
-              </div>
+              <div style={{ fontSize: 14, opacity: 0.9, whiteSpace: "pre-wrap" }}>{run.summary ?? "—"}</div>
               <div style={{ marginTop: 8, fontSize: 13, opacity: 0.75 }}>
                 Started: {fmt(run.started_at)} · Finished: {fmt(run.finished_at)}
               </div>
             </div>
 
-            {/* Actions executed */}
             <div style={{ marginTop: 14 }}>
               <div style={{ fontWeight: 900, marginBottom: 8 }}>Actions executed by the system</div>
               <div style={{ display: "grid", gap: 8 }}>
@@ -98,7 +107,6 @@ export default function OnboardingDetails() {
               </div>
             </div>
 
-            {/* Zero-touch explanation */}
             <div style={{ marginTop: 16, padding: 12, borderRadius: 14, border: "1px solid rgba(0,0,0,0.10)" }}>
               <div style={{ fontWeight: 900, marginBottom: 6 }}>Why this is Zero-Touch</div>
               <ul style={{ margin: 0, paddingLeft: 18, fontSize: 14, opacity: 0.9 }}>
@@ -116,7 +124,16 @@ export default function OnboardingDetails() {
 
 function ActionRow({ label, done }: { label: string; done: boolean }) {
   return (
-    <div style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: 12, borderRadius: 14, border: "1px solid rgba(0,0,0,0.10)" }}>
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "space-between",
+        gap: 12,
+        padding: 12,
+        borderRadius: 14,
+        border: "1px solid rgba(0,0,0,0.10)",
+      }}
+    >
       <div style={{ fontWeight: 900 }}>{label}</div>
       <div style={{ fontWeight: 900, opacity: 0.9 }}>{done ? "Completed" : "Not completed"}</div>
     </div>

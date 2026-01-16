@@ -5,7 +5,7 @@ import AuditLog from "./pages/AuditLog";
 
 export default function App() {
   return (
-    <div style={{ maxWidth: 980, margin: "0 auto", padding: 24, fontFamily: "system-ui, -apple-system, Segoe UI, Roboto" }}>
+    <div style={{ maxWidth: 860, margin: "0 auto", padding: 24, fontFamily: "system-ui, -apple-system, Segoe UI, Roboto" }}>
       <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
         <Link to="/" style={{ textDecoration: "none", color: "inherit" }}>
           <div style={{ fontWeight: 900 }}>Automated Onboarding — Zero Touch</div>
