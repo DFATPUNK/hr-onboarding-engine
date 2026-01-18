@@ -274,12 +274,16 @@ export default function Home() {
           </div>
 
           {/* Ashby Candidate Hired payload with 2 lecture modes : text & JSON */}
-          <div style={{ padding: 12, borderRadius: 14, border: "1px solid rgba(0,0,0,0.10)" }}>
+          <div style={{ marginTop: 12, padding: 12, borderRadius: 14, border: "1px solid rgba(0,0,0,0.10)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
               <div style={{ fontWeight: 900 }}>Ashby event payload (simulated)</div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button onClick={() => setPayloadMode("text")} style={miniTab(payloadMode === "text")}>Text</button>
-                <button onClick={() => setPayloadMode("json")} style={miniTab(payloadMode === "json")}>JSON</button>
+              <div style={segmentedWrap}>
+                <button onClick={() => setPayloadMode("text")} style={segmentedBtn(payloadMode === "text", "left")}>
+                  Text
+                </button>
+                <button onClick={() => setPayloadMode("json")} style={segmentedBtn(payloadMode === "json", "right")}>
+                  JSON
+                </button>
               </div>
             </div>
 
@@ -681,14 +685,27 @@ function formatMDY(iso: string) {
   return `${m}/${d}/${y}`;
 }
 
-function miniTab(active: boolean): React.CSSProperties {
+const segmentedWrap: React.CSSProperties = {
+  display: "inline-flex",
+  border: "1px solid rgba(0,0,0,0.12)",
+  borderRadius: 12,
+  overflow: "hidden",
+};
+
+function segmentedBtn(active: boolean, side: "left" | "right"): React.CSSProperties {
   return {
     padding: "6px 10px",
-    borderRadius: 10,
-    border: "1px solid rgba(0,0,0,0.12)",
+    border: "none",
     background: active ? "rgba(0,0,0,0.06)" : "white",
     cursor: "pointer",
     fontWeight: 900,
     fontSize: 12,
+    // coins
+    borderTopLeftRadius: side === "left" ? 12 : 0,
+    borderBottomLeftRadius: side === "left" ? 12 : 0,
+    borderTopRightRadius: side === "right" ? 12 : 0,
+    borderBottomRightRadius: side === "right" ? 12 : 0,
+    // séparation interne
+    borderRight: side === "left" ? "1px solid rgba(0,0,0,0.12)" : "none",
   };
 }
