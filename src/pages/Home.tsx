@@ -23,6 +23,23 @@ export default function Home() {
   const [runSteps, setRunSteps] = useState<RunStep[]>([]);
   const [error, setError] = useState<string | null>(null);
 
+  const [payloadMode, setPayloadMode] = useState<"text" | "json">("text");
+
+  const ashbyPayload = {
+    event: "candidate.hired",
+    candidate: {
+      name: "Ana Lopez",
+      email: "ana.lopez@alan-demo.com",
+    },
+    job: {
+      title: "Backend Engineer",
+      department: "Engineering",
+    },
+    start_date: "2026-02-03",
+    contract_type: "Permanent",
+    country: "FR",
+  };
+
   const basePayload: OfferSignedPayload = useMemo(
     () => ({
       event_id: `evt_demo_${Date.now()}`,
@@ -150,27 +167,18 @@ export default function Home() {
     <div style={{ width: "100%", minHeight: 0 }}>
       <div
         style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr 2fr",
-          gap: 16,
-          alignItems: "stretch",
-          height: "calc(100vh - 170px)",
-        }}
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr 2fr",
+            gap: 16,
+            width: "100%",
+            maxWidth: "100vw",
+            height: "100%",
+            minHeight: 0
+          }}
       >
         {/* LEFT CONTAINER (Run summary) */}
         <section style={panel()}>
           <div style={{ fontSize: 16, fontWeight: 900, marginBottom: 10 }}>Run summary</div>
-
-          <div style={{ padding: 12, borderRadius: 14, background: "rgba(0,0,0,0.04)" }}>
-            <div style={{ fontWeight: 900, marginBottom: 6 }}>Demo context</div>
-            <div style={{ fontSize: 13, opacity: 0.9, lineHeight: 1.45 }}>
-              You are viewing a simulated onboarding aftermath for a new hire.
-              <br />
-              <b>Ana Lopez</b> is joining <b>Engineering</b> as <b>Backend Engineer</b> in <b>FR</b> (Permanent).
-              <br />
-              Start date: <b>2026-02-03</b>.
-            </div>
-          </div>
 
           <div style={{ marginTop: 12, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
             <span style={toneStyle(badge.tone)}>{badge.label}</span>
@@ -265,22 +273,37 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Placeholder for Ashby JSON (we’ll implement next) */}
-          <div style={{ marginTop: 10, padding: 12, borderRadius: 14, border: "1px solid rgba(0,0,0,0.10)" }}>
-            <div style={{ fontWeight: 900, marginBottom: 6 }}>Ashby event payload (preview)</div>
-            <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 8 }}>
-              Next step: we’ll replace this with a clean, RH-readable “Candidate hired” object for Ana.
+          {/* Ashby Candidate Hired payload with 2 lecture modes : text & JSON */}
+          <div style={{ padding: 12, borderRadius: 14, border: "1px solid rgba(0,0,0,0.10)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+              <div style={{ fontWeight: 900 }}>Ashby event payload (simulated)</div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={() => setPayloadMode("text")} style={miniTab(payloadMode === "text")}>Text</button>
+                <button onClick={() => setPayloadMode("json")} style={miniTab(payloadMode === "json")}>JSON</button>
+              </div>
             </div>
-            <pre style={preStyle}>
-{`{
-  "event": "candidate.hired",
-  "candidate": { "name": "Ana Lopez", "email": "ana.lopez@alan-demo.com" },
-  "job": { "title": "Backend Engineer", "department": "Engineering" },
-  "start_date": "2026-02-03",
-  "country": "FR",
-  "contract_type": "Permanent"
-}`}
-            </pre>
+
+            {payloadMode === "text" ? (
+              <div style={{ marginTop: 10, fontSize: 13, opacity: 0.9, lineHeight: 1.5 }}>
+                Our candidate <b>{ashbyPayload.candidate.name}</b> (<b>{ashbyPayload.candidate.email}</b>) has been{" "}
+                <b>{ashbyPayload.event}</b>! {ashbyPayload.candidate.name} will join our{" "}
+                <b>{ashbyPayload.job.department}</b> as <b>{ashbyPayload.job.title}</b>, starting on{" "}
+                <b>{formatMDY(ashbyPayload.start_date)}</b>. Her contract type is <b>{ashbyPayload.contract_type}</b>.
+              </div>
+            ) : (
+              <pre style={{
+                marginTop: 10,
+                padding: 12,
+                borderRadius: 12,
+                background: "rgba(0,0,0,0.04)",
+                fontSize: 12,
+                lineHeight: 1.4,
+                whiteSpace: "pre-wrap",
+                overflow: "hidden"
+              }}>
+                {JSON.stringify(ashbyPayload, null, 2)}
+              </pre>
+            )}
           </div>
 
           <div style={{ marginTop: 12, fontSize: 13, opacity: 0.8 }}>
@@ -488,7 +511,9 @@ function panel(): React.CSSProperties {
     borderRadius: 18,
     padding: 14,
     background: "white",
-    minHeight: 0
+    minWidth: 0,
+    minHeight: 0,
+    overflow: "hidden"
   };
 }
 
@@ -657,4 +682,23 @@ function humanLabel(step: string) {
     FINISH_RUN: "Onboarding completed",
   };
   return map[s] ?? step;
+}
+
+function formatMDY(iso: string) {
+  // iso "YYYY-MM-DD"
+  const [y, m, d] = String(iso).split("-");
+  if (!y || !m || !d) return iso;
+  return `${m}/${d}/${y}`;
+}
+
+function miniTab(active: boolean): React.CSSProperties {
+  return {
+    padding: "6px 10px",
+    borderRadius: 10,
+    border: "1px solid rgba(0,0,0,0.12)",
+    background: active ? "rgba(0,0,0,0.06)" : "white",
+    cursor: "pointer",
+    fontWeight: 900,
+    fontSize: 12,
+  };
 }
