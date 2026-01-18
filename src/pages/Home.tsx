@@ -1,90 +1,27 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
 import { postOfferSigned, fetchRun, type OfferSignedPayload, type RunStep } from "../lib/api";
 import { statusBadge, toneStyle } from "../lib/rh";
-import { getEvidence } from "../lib/steps";
-
-const LS_LAST_RUN = "hr_onboarding_last_run_id";
 
 type ScenarioKind = "standard" | "flagged" | "partial";
+type RightTab = "candidate" | "onboarding" | "audit";
 
-function cardStyle(): React.CSSProperties {
-  return {
-    border: "1px solid rgba(0,0,0,0.12)",
-    borderRadius: 18,
-    padding: 18,
-    background: "white",
-  };
-}
-
-function pill(tone: "success" | "warning" | "danger" | "neutral") {
-  return toneStyle(tone);
-}
-
-function rhMeaning(status?: string, input?: any) {
-  const s = (status ?? "").toUpperCase();
-  if (s === "SUCCESS") {
-    return "✅ No action required. The system executed all deterministic onboarding actions automatically.";
-  }
-  if (s === "FLAGGED") {
-    const role = input?.job?.title ? ` (“${input.job.title}”)` : "";
-    return `⚠️ Human review required. The system detected ambiguity that needs HR input${role}.`;
-  }
-  if (s === "PARTIAL") {
-    return "🟡 Partially completed. Most actions were executed automatically, but at least one step requires follow-up.";
-  }
-  if (s === "FAILED") {
-    return "❌ Failed. The system could not complete the onboarding run. Please inspect the journal for details.";
-  }
-  return "Run a scenario to generate an onboarding decision.";
-}
-
-function DemoContext({ input }: { input?: any }) {
-  const first = input?.candidate?.first_name ?? "Ana";
-  const last = input?.candidate?.last_name ?? "Lopez";
-  const title = input?.job?.title ?? "Backend Engineer";
-  const dept = input?.job?.department ?? "Engineering";
-  const country = input?.employment?.country ?? "FR";
-  const contract = input?.employment?.contract_type ?? "Permanent";
-  const start = input?.employment?.start_date ?? "2026-02-03";
-
-  return (
-    <div style={{ padding: 14, borderRadius: 14, background: "rgba(0,0,0,0.04)" }}>
-      <div style={{ fontWeight: 900, marginBottom: 6 }}>Demo context</div>
-      <div style={{ fontSize: 14, opacity: 0.9, lineHeight: 1.45 }}>
-        You are viewing a simulated onboarding aftermath for a new hire.
-        <br />
-        <b>{first} {last}</b> is joining <b>{dept}</b> as <b>{title}</b> in <b>{country}</b> ({contract}).
-        <br />
-        Start date: <b>{start}</b>.
-      </div>
-    </div>
-  );
-}
+const LS_LAST_RUN = "hr_onboarding_last_run_id";
 
 export default function Home() {
   const [loading, setLoading] = useState(false);
   const [activeScenario, setActiveScenario] = useState<ScenarioKind | null>(null);
 
-  // we don’t auto-show last run anymore
+  const [rightTab, setRightTab] = useState<RightTab>("candidate");
+
   const [lastRunId, setLastRunId] = useState<string | null>(null);
 
-  // displayed run data
-  const [displayedRunId, setDisplayedRunId] = useState<string | null>(null);
-  const [displayedStatus, setDisplayedStatus] = useState<string | null>(null);
-  const [displayedSummary, setDisplayedSummary] = useState<string | null>(null);
-  const [displayedInput, setDisplayedInput] = useState<any>(null);
-  const [displayedSteps, setDisplayedSteps] = useState<RunStep[]>([]);
-
-  const [err, setErr] = useState<string | null>(null);
-
-  // right panel tab
-  const [tab, setTab] = useState<"overview" | "journal">("overview");
-
-  useEffect(() => {
-    const saved = localStorage.getItem(LS_LAST_RUN);
-    if (saved) setLastRunId(saved);
-  }, []);
+  // Displayed run (the one we are currently showing in the UI)
+  const [runId, setRunId] = useState<string | null>(null);
+  const [runStatus, setRunStatus] = useState<string | null>(null);
+  const [runSummary, setRunSummary] = useState<string | null>(null);
+  const [runInput, setRunInput] = useState<any>(null);
+  const [runSteps, setRunSteps] = useState<RunStep[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   const basePayload: OfferSignedPayload = useMemo(
     () => ({
@@ -97,10 +34,16 @@ export default function Home() {
     []
   );
 
+  // on load: keep last run id only (no auto-display)
+  useEffect(() => {
+    const saved = localStorage.getItem(LS_LAST_RUN);
+    if (saved) setLastRunId(saved);
+  }, []);
+
   async function runScenario(kind: ScenarioKind) {
     setLoading(true);
     setActiveScenario(kind);
-    setErr(null);
+    setError(null);
 
     try {
       const payload: OfferSignedPayload = {
@@ -114,27 +57,30 @@ export default function Home() {
               : { standard: true, simulate_it_failure: true },
       };
 
+      // flagged scenario: deliberately weird role + People department
       if (kind === "flagged") {
         payload.job = { title: "Quantum HR Wizard", department: "People", level: "C1" };
       }
 
       const r = await postOfferSigned(payload);
 
-      // store last run id
+      // Persist last run id
       localStorage.setItem(LS_LAST_RUN, r.run_id);
       setLastRunId(r.run_id);
 
-      // fetch full run to get steps + input + evidence
+      // Fetch full run to display evidence and embedded panels
       const full = await fetchRun(r.run_id);
 
-      setDisplayedRunId(r.run_id);
-      setDisplayedStatus(full.run.status);
-      setDisplayedSummary(full.run.summary ?? r.summary ?? null);
-      setDisplayedInput(full.run.input ?? null);
-      setDisplayedSteps(full.steps ?? []);
-      setTab("overview");
+      setRunId(r.run_id);
+      setRunStatus(full.run.status);
+      setRunSummary(full.run.summary ?? r.summary ?? null);
+      setRunInput(full.run.input ?? null);
+      setRunSteps(full.steps ?? []);
+
+      // After a run, default to onboarding details tab
+      setRightTab("onboarding");
     } catch (e: any) {
-      setErr(e?.message ?? "Something went wrong");
+      setError(e?.message ?? "Something went wrong");
     } finally {
       setLoading(false);
       setActiveScenario(null);
@@ -145,244 +91,454 @@ export default function Home() {
     if (!lastRunId) return;
     setLoading(true);
     setActiveScenario(null);
-    setErr(null);
+    setError(null);
 
     try {
       const full = await fetchRun(lastRunId);
-      setDisplayedRunId(lastRunId);
-      setDisplayedStatus(full.run.status);
-      setDisplayedSummary(full.run.summary ?? null);
-      setDisplayedInput(full.run.input ?? null);
-      setDisplayedSteps(full.steps ?? []);
-      setTab("overview");
+      setRunId(lastRunId);
+      setRunStatus(full.run.status);
+      setRunSummary(full.run.summary ?? null);
+      setRunInput(full.run.input ?? null);
+      setRunSteps(full.steps ?? []);
+      setRightTab("onboarding");
     } catch (e: any) {
-      setErr(e?.message ?? "Failed to load last run");
+      setError(e?.message ?? "Failed to load last run");
     } finally {
       setLoading(false);
     }
   }
 
-  const badge = statusBadge(displayedStatus ?? undefined);
+  // Derived: RH-friendly “meaning”
+  const whatThisMeans = rhMeaning(runStatus ?? undefined, runInput);
 
-  // Human involvement is purely driven by run.status (robust)
+  const badge = statusBadge(runStatus ?? undefined);
+
+  // Evidence extraction from steps (proofs)
+  const accountsStep = findStep(runSteps, "PROVISION_ACCOUNTS");
+  const hardwareStep = findStep(runSteps, "PROVISION_HARDWARE");
+  const accessStep = findStep(runSteps, "PROVISION_ACCESS");
+
+  const evidence = {
+    accounts: {
+      status: accountsStep?.status?.toUpperCase() ?? null,
+      output: accountsStep?.output ?? null,
+    },
+    hardware: {
+      status: hardwareStep?.status?.toUpperCase() ?? null,
+      output: hardwareStep?.output ?? null,
+    },
+    access: {
+      status: accessStep?.status?.toUpperCase() ?? null,
+      output: accessStep?.output ?? null,
+    },
+  };
+
+  // Human involvement must be driven by run.status (robust)
   const humanInvolvement =
-    (displayedStatus ?? "").toUpperCase() === "FLAGGED" ? "Required (ambiguity detected)" : "Not required";
+    (runStatus ?? "").toUpperCase() === "FLAGGED" ? "Required (ambiguity detected)" : "Not required";
 
-  const evidence = getEvidence(displayedSteps);
+  // Decision rules (from input)
+  const rules = {
+    country: runInput?.employment?.country ?? "—",
+    department: runInput?.job?.department ?? "—",
+    contractType: runInput?.employment?.contract_type ?? "—",
+    role: runInput?.job?.title ?? "—",
+  };
 
+  // Layout: 3 columns (1/4, 1/4, 1/2)
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1.15fr 0.85fr", gap: 18 }}>
-      {/* LEFT */}
-      <div style={cardStyle()}>
-        <div style={{ fontSize: 18, fontWeight: 900, marginBottom: 6 }}>Automated onboarding decision</div>
-        <div style={{ fontSize: 14, opacity: 0.8, marginBottom: 14 }}>
+    <div style={{ width: "100%" }}>
+      {/* Page-level narrative (outside containers) */}
+      <div style={{ marginBottom: 14 }}>
+        <div style={{ fontSize: 20, fontWeight: 950 }}>Automated onboarding — Zero Touch</div>
+        <div style={{ fontSize: 13, opacity: 0.75 }}>
+          From offer signed to Day 1 readiness — without manual coordination.
+        </div>
+        <div style={{ fontSize: 14, opacity: 0.9, marginTop: 8, maxWidth: 980, lineHeight: 1.45 }}>
           This demo simulates what happens after a new hire signs an offer. The system executes deterministic onboarding
           actions automatically, and escalates to HR only when ambiguity is detected.
         </div>
-
-        {/* HOW IT WORKS (top, as you asked) */}
-        <div style={{ marginBottom: 12, padding: 14, borderRadius: 14, background: "rgba(0,0,0,0.04)" }}>
-          <div style={{ fontWeight: 900, marginBottom: 6 }}>How this demo works</div>
-          <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, opacity: 0.9, lineHeight: 1.5 }}>
-            <li>You trigger an <b>offer signed</b> event.</li>
-            <li>The system executes deterministic onboarding actions automatically.</li>
-            <li>HR is involved only when ambiguity is detected (FLAGGED).</li>
-          </ul>
-        </div>
-
-        {/* DEMO CONTEXT */}
-        <DemoContext input={displayedInput ?? basePayload} />
-
-        {/* EMPTY STATE */}
-        {!displayedRunId && (
-          <div style={{ marginTop: 12, padding: 14, borderRadius: 14, border: "1px solid rgba(0,0,0,0.10)" }}>
-            <div style={{ fontWeight: 900, marginBottom: 6 }}>Start here</div>
-            <div style={{ fontSize: 14, opacity: 0.9 }}>
-              Run a scenario on the right to generate an onboarding decision.
-            </div>
-
-            {lastRunId && (
-              <div style={{ marginTop: 12 }}>
-                <button onClick={showLastRun} disabled={loading} style={ghostBtn}>
-                  Show last run →
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* DECISION */}
-        {displayedRunId && (
-          <>
-            <div style={{ marginTop: 14, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-              <span style={pill(badge.tone)}>{badge.label}</span>
-              {loading && <span style={{ fontSize: 13, opacity: 0.75 }}>Loading…</span>}
-            </div>
-
-            <div style={{ marginTop: 12, padding: 12, borderRadius: 14, background: "rgba(0,0,0,0.04)" }}>
-              <div style={{ fontWeight: 900, marginBottom: 6 }}>What this means</div>
-              <div style={{ fontSize: 14, opacity: 0.92, whiteSpace: "pre-wrap" }}>
-                {rhMeaning(displayedStatus ?? undefined, displayedInput)}
-              </div>
-
-              {/* keep summary as a secondary line (if present) */}
-              {displayedSummary && (
-                <div style={{ marginTop: 8, fontSize: 13, opacity: 0.75, whiteSpace: "pre-wrap" }}>
-                  {displayedSummary}
-                </div>
-              )}
-            </div>
-
-            {/* Replace big CTAs with subtle links */}
-            <div style={{ marginTop: 12, display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-              <Link to={`/onboarding/${displayedRunId}`} style={secondaryLink}>
-                Open onboarding details
-              </Link>
-              <Link to={`/audit/${displayedRunId}`} style={secondaryLink}>
-                Open audit log
-              </Link>
-            </div>
-
-            {err && (
-              <div style={{ marginTop: 12, padding: 12, borderRadius: 12, background: "rgba(255,0,0,0.08)" }}>
-                <b>Error:</b> {err}
-              </div>
-            )}
-          </>
-        )}
       </div>
 
-      {/* RIGHT PANEL */}
-      <div style={cardStyle()}>
-        <div style={{ fontSize: 16, fontWeight: 900, marginBottom: 6 }}>Simulate situations</div>
-        <div style={{ fontSize: 13, opacity: 0.75, marginBottom: 12 }}>
-          Run one scenario to generate an onboarding decision.
-        </div>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr 2fr",
+          gap: 16,
+          alignItems: "stretch",
+          height: "calc(100vh - 170px)",
+        }}
+      >
+        {/* LEFT CONTAINER (Run summary) */}
+        <section style={panel()}>
+          <div style={{ fontSize: 16, fontWeight: 900, marginBottom: 10 }}>Run summary</div>
 
-        <ScenarioButton
-          title="Standard onboarding"
-          subtitle="Expected: no action required"
-          icon="▶️"
-          disabled={loading}
-          active={activeScenario === "standard"}
-          onClick={() => runScenario("standard")}
-        />
-
-        <ScenarioButton
-          title="Unknown role → requires HR review"
-          subtitle="Expected: Human review required"
-          icon="⚠️"
-          disabled={loading}
-          active={activeScenario === "flagged"}
-          onClick={() => runScenario("flagged")}
-        />
-
-        <ScenarioButton
-          title="IT issue → partial completion"
-          subtitle="Expected: Partial completion"
-          icon="🔧"
-          disabled={loading}
-          active={activeScenario === "partial"}
-          onClick={() => runScenario("partial")}
-        />
-
-        {/* Panel tabs */}
-        <div style={{ marginTop: 14, display: "flex", gap: 10 }}>
-          <button onClick={() => setTab("overview")} style={tabBtn(tab === "overview")}>
-            Overview
-          </button>
-          <button onClick={() => setTab("journal")} style={tabBtn(tab === "journal")}>
-            Journal
-          </button>
-        </div>
-
-        {/* Panel content */}
-        <div style={{ marginTop: 12 }}>
-          {!displayedRunId && (
-            <div style={{ fontSize: 13, opacity: 0.8 }}>
-              After running a scenario, you’ll see evidence (outputs) and a simplified journal here.
+          <div style={{ padding: 12, borderRadius: 14, background: "rgba(0,0,0,0.04)" }}>
+            <div style={{ fontWeight: 900, marginBottom: 6 }}>Demo context</div>
+            <div style={{ fontSize: 13, opacity: 0.9, lineHeight: 1.45 }}>
+              You are viewing a simulated onboarding aftermath for a new hire.
+              <br />
+              <b>Ana Lopez</b> is joining <b>Engineering</b> as <b>Backend Engineer</b> in <b>FR</b> (Permanent).
+              <br />
+              Start date: <b>2026-02-03</b>.
             </div>
-          )}
-
-          {displayedRunId && tab === "overview" && (
-            <div style={{ display: "grid", gap: 12 }}>
-              <div style={{ padding: 12, borderRadius: 14, border: "1px solid rgba(0,0,0,0.10)" }}>
-                <div style={{ fontWeight: 900, marginBottom: 6 }}>Decision rules applied</div>
-                <div style={{ display: "grid", gap: 8, fontSize: 13, opacity: 0.9 }}>
-                  <RuleRow label="Country" value={displayedInput?.employment?.country ?? "—"} />
-                  <RuleRow label="Department" value={displayedInput?.job?.department ?? "—"} />
-                  <RuleRow label="Contract type" value={displayedInput?.employment?.contract_type ?? "—"} />
-                  <RuleRow label="Role" value={displayedInput?.job?.title ?? "—"} />
-                  <RuleRow label="Human involvement" value={humanInvolvement} />
-                </div>
-              </div>
-
-              <div style={{ padding: 12, borderRadius: 14, border: "1px solid rgba(0,0,0,0.10)" }}>
-                <div style={{ fontWeight: 900, marginBottom: 6 }}>Evidence</div>
-
-                <EvidenceBlock
-                  title="Work account"
-                  status={evidence.accounts ? "Completed" : "—"}
-                  lines={[
-                    evidence.accounts?.account?.username ? `Username: ${evidence.accounts.account.username}` : null,
-                    evidence.accounts?.action_id ? `Action ID: ${evidence.accounts.action_id}` : null,
-                  ]}
-                />
-
-                <EvidenceBlock
-                  title="Hardware"
-                  status={evidence.hardware ? "Completed" : "—"}
-                  lines={[
-                    evidence.hardware?.bundle ? `Bundle: ${evidence.hardware.bundle}` : null,
-                    evidence.hardware?.ticket_id ? `Order/Ticket: ${evidence.hardware.ticket_id}` : null,
-                  ]}
-                />
-
-                <EvidenceBlock
-                  title="Access rights"
-                  status={evidence.access ? "Completed" : "—"}
-                  lines={[
-                    Array.isArray(evidence.access?.accesses)
-                      ? `Services: ${evidence.access.accesses.join(", ")}`
-                      : null,
-                  ]}
-                />
-              </div>
-            </div>
-          )}
-
-          {displayedRunId && tab === "journal" && (
-            <div style={{ padding: 12, borderRadius: 14, border: "1px solid rgba(0,0,0,0.10)" }}>
-              <div style={{ fontWeight: 900, marginBottom: 6 }}>Journal</div>
-              <div style={{ fontSize: 13, opacity: 0.8, marginBottom: 10 }}>
-                Human-readable timeline of what happened.
-              </div>
-
-              <div style={{ display: "grid", gap: 8 }}>
-                {displayedSteps.length === 0 && <div style={{ fontSize: 13, opacity: 0.8 }}>No steps logged yet.</div>}
-                {displayedSteps.map((s) => (
-                  <div key={s.id} style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                    <div style={{ fontWeight: 800 }}>{s.step}</div>
-                    <div style={{ fontWeight: 900 }}>{s.status}</div>
-                  </div>
-                ))}
-              </div>
-
-              <div style={{ marginTop: 10, fontSize: 12, opacity: 0.7 }}>
-                (Full audit labels are available in the Audit page.)
-              </div>
-            </div>
-          )}
-        </div>
-
-        {err && (
-          <div style={{ marginTop: 12, padding: 12, borderRadius: 12, background: "rgba(255,0,0,0.08)" }}>
-            <b>Error:</b> {err}
           </div>
-        )}
+
+          <div style={{ marginTop: 12, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+            <span style={toneStyle(badge.tone)}>{badge.label}</span>
+
+            {!runId && lastRunId && (
+              <button onClick={showLastRun} disabled={loading} style={smallBtn}>
+                Show last run
+              </button>
+            )}
+          </div>
+
+          <div style={{ marginTop: 12, padding: 12, borderRadius: 14, background: "rgba(0,0,0,0.04)" }}>
+            <div style={{ fontWeight: 900, marginBottom: 6 }}>What this means</div>
+            <div style={{ fontSize: 13, opacity: 0.92, lineHeight: 1.45, whiteSpace: "pre-wrap" }}>
+              {whatThisMeans}
+            </div>
+            {runSummary && (
+              <div style={{ marginTop: 8, fontSize: 12, opacity: 0.72, whiteSpace: "pre-wrap" }}>{runSummary}</div>
+            )}
+          </div>
+
+          {/* Decision rules */}
+          <div style={{ marginTop: 12, padding: 12, borderRadius: 14, border: "1px solid rgba(0,0,0,0.10)" }}>
+            <div style={{ fontWeight: 900, marginBottom: 8 }}>Decision rules applied</div>
+            <div style={{ display: "grid", gap: 8, fontSize: 13, opacity: 0.92 }}>
+              <RuleRow label="Country" value={rules.country} />
+              <RuleRow label="Department" value={rules.department} />
+              <RuleRow label="Contract type" value={rules.contractType} />
+              <RuleRow label="Role" value={rules.role} />
+              <RuleRow label="Human involvement" value={humanInvolvement} />
+            </div>
+          </div>
+
+          {/* Evidence */}
+          <div style={{ marginTop: 12, padding: 12, borderRadius: 14, border: "1px solid rgba(0,0,0,0.10)" }}>
+            <div style={{ fontWeight: 900, marginBottom: 8 }}>Evidence</div>
+
+            <EvidenceBlock
+              title="Work account"
+              status={evidenceStatusLabel(evidence.accounts.status)}
+              lines={[
+                evidence.accounts.output?.account?.username ? `Username: ${evidence.accounts.output.account.username}` : null,
+                evidence.accounts.output?.action_id ? `Action ID: ${evidence.accounts.output.action_id}` : null,
+              ]}
+            />
+
+            <EvidenceBlock
+              title="Hardware"
+              status={evidenceStatusLabel(evidence.hardware.status)}
+              lines={[
+                evidence.hardware.output?.bundle ? `Bundle: ${evidence.hardware.output.bundle}` : null,
+                evidence.hardware.output?.ticket_id ? `Order/Ticket: ${evidence.hardware.output.ticket_id}` : null,
+                evidence.hardware.status === "FAILED" && !evidence.hardware.output
+                  ? "Hardware ordering failed (simulated provider outage)."
+                  : null,
+              ]}
+            />
+
+            <EvidenceBlock
+              title="Access rights"
+              status={evidenceStatusLabel(evidence.access.status)}
+              lines={[
+                Array.isArray(evidence.access.output?.accesses)
+                  ? `Services: ${evidence.access.output.accesses.join(", ")}`
+                  : null,
+              ]}
+            />
+          </div>
+
+          {error && (
+            <div style={{ marginTop: 12, padding: 12, borderRadius: 12, background: "rgba(255,0,0,0.08)" }}>
+              <b>Error:</b> {error}
+            </div>
+          )}
+        </section>
+
+        {/* CENTER CONTAINER (Simulation + Ashby trigger mock placeholder) */}
+        <section style={panel()}>
+          <div style={{ fontSize: 16, fontWeight: 900, marginBottom: 6 }}>Simulate situations</div>
+
+          {/* How this demo works belongs here (per your request) */}
+          <div style={{ marginTop: 10, padding: 12, borderRadius: 14, background: "rgba(0,0,0,0.04)" }}>
+            <div style={{ fontWeight: 900, marginBottom: 6 }}>How this demo works</div>
+            <div style={{ fontSize: 13, opacity: 0.9, lineHeight: 1.5 }}>
+              <ul style={{ margin: 0, paddingLeft: 18 }}>
+                <li>
+                  You trigger an <b>Ashby-like</b> event (<b>Candidate hired</b>) for Ana Lopez.
+                </li>
+                <li>The system executes deterministic onboarding actions automatically.</li>
+                <li>HR is involved only when ambiguity is detected (FLAGGED).</li>
+              </ul>
+            </div>
+          </div>
+
+          {/* Placeholder for Ashby JSON (we’ll implement next) */}
+          <div style={{ marginTop: 10, padding: 12, borderRadius: 14, border: "1px solid rgba(0,0,0,0.10)" }}>
+            <div style={{ fontWeight: 900, marginBottom: 6 }}>Ashby event payload (preview)</div>
+            <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 8 }}>
+              Next step: we’ll replace this with a clean, RH-readable “Candidate hired” object for Ana.
+            </div>
+            <pre style={preStyle}>
+{`{
+  "event": "candidate.hired",
+  "candidate": { "name": "Ana Lopez", "email": "ana.lopez@alan-demo.com" },
+  "job": { "title": "Backend Engineer", "department": "Engineering" },
+  "start_date": "2026-02-03",
+  "country": "FR",
+  "contract_type": "Permanent"
+}`}
+            </pre>
+          </div>
+
+          <div style={{ marginTop: 12, fontSize: 13, opacity: 0.8 }}>
+            Run one scenario to generate an onboarding decision.
+          </div>
+
+          <div style={{ marginTop: 12 }}>
+            <ScenarioButton
+              title="Standard onboarding"
+              subtitle="Expected: no action required"
+              icon="▶️"
+              disabled={loading}
+              active={activeScenario === "standard"}
+              onClick={() => runScenario("standard")}
+            />
+
+            <ScenarioButton
+              title="Unknown role → requires HR review"
+              subtitle="Expected: Human review required"
+              icon="⚠️"
+              disabled={loading}
+              active={activeScenario === "flagged"}
+              onClick={() => runScenario("flagged")}
+            />
+
+            <ScenarioButton
+              title="IT issue → partial completion"
+              subtitle="Expected: Partial completion"
+              icon="🔧"
+              disabled={loading}
+              active={activeScenario === "partial"}
+              onClick={() => runScenario("partial")}
+            />
+          </div>
+        </section>
+
+        {/* RIGHT CONTAINER (Tabbed, 50%) */}
+        <section style={panel()}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+            <div style={{ fontSize: 16, fontWeight: 900 }}>Details</div>
+            {runId && (
+              <div style={{ fontSize: 12, opacity: 0.7 }}>
+                Run: <span style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" }}>{runId.slice(0, 8)}…</span>
+              </div>
+            )}
+          </div>
+
+          <div style={{ marginTop: 12, display: "flex", gap: 10 }}>
+            <button style={tabBtn(rightTab === "candidate")} onClick={() => setRightTab("candidate")}>
+              Candidate application
+            </button>
+            <button style={tabBtn(rightTab === "onboarding")} onClick={() => setRightTab("onboarding")} disabled={!runId}>
+              Onboarding details
+            </button>
+            <button style={tabBtn(rightTab === "audit")} onClick={() => setRightTab("audit")} disabled={!runId}>
+              Audit log
+            </button>
+          </div>
+
+          <div style={{ marginTop: 12, height: "100%", overflow: "auto" }}>
+            {rightTab === "candidate" && <CandidateApplicationPanel />}
+            {rightTab === "onboarding" && <OnboardingDetailsEmbedded runId={runId} runInput={runInput} steps={runSteps} status={runStatus} summary={runSummary} />}
+            {rightTab === "audit" && <AuditLogEmbedded steps={runSteps} status={runStatus} />}
+          </div>
+        </section>
+      </div>
+
+      <div style={{ marginTop: 10, fontSize: 12, opacity: 0.7 }}>
+        Demo — Serverless APIs (Vercel) + Activepieces + Supabase.
       </div>
     </div>
   );
+}
+
+/* ----------------------------- Embedded panels ---------------------------- */
+
+function CandidateApplicationPanel() {
+  // Placeholder: next step we will replace by an Ashby-style application mock + CV link
+  return (
+    <div style={{ padding: 12, borderRadius: 14, border: "1px solid rgba(0,0,0,0.10)" }}>
+      <div style={{ fontWeight: 900, marginBottom: 6 }}>Candidate application</div>
+      <div style={{ fontSize: 13, opacity: 0.9, lineHeight: 1.5 }}>
+        This tab will display Ana’s (mocked) Ashby application: key answers + attachments (CV).
+      </div>
+      <div style={{ marginTop: 10, padding: 12, borderRadius: 12, background: "rgba(0,0,0,0.04)", fontSize: 13, opacity: 0.9 }}>
+        Coming next: beautified Ashby JSON → “Candidate hired” payload + application answers.
+      </div>
+    </div>
+  );
+}
+
+function OnboardingDetailsEmbedded({
+  runId,
+  runInput,
+  steps,
+  status,
+  summary,
+}: {
+  runId: string | null;
+  runInput: any;
+  steps: RunStep[];
+  status: string | null;
+  summary: string | null;
+}) {
+  if (!runId) {
+    return (
+      <div style={{ fontSize: 13, opacity: 0.8 }}>
+        Run a scenario to generate onboarding details.
+      </div>
+    );
+  }
+
+  const badge = statusBadge(status ?? undefined);
+  const name = `${runInput?.candidate?.first_name ?? "Ana"} ${runInput?.candidate?.last_name ?? "Lopez"}`;
+  const title = runInput?.job?.title ?? "—";
+  const country = runInput?.employment?.country ?? "—";
+  const contract = runInput?.employment?.contract_type ?? "—";
+  const start = runInput?.employment?.start_date ?? "—";
+
+  const accounts = findStep(steps, "PROVISION_ACCOUNTS");
+  const hardware = findStep(steps, "PROVISION_HARDWARE");
+  const access = findStep(steps, "PROVISION_ACCESS");
+
+  return (
+    <div style={{ display: "grid", gap: 12 }}>
+      <div style={{ padding: 12, borderRadius: 14, border: "1px solid rgba(0,0,0,0.10)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 900 }}>Onboarding details</div>
+            <div style={{ fontSize: 12, opacity: 0.75 }}>What the system did — and whether HR needs to act.</div>
+          </div>
+          <span style={toneStyle(badge.tone)}>{badge.label}</span>
+        </div>
+
+        <div style={{ marginTop: 10, padding: 12, borderRadius: 12, background: "rgba(0,0,0,0.04)" }}>
+          <div style={{ fontWeight: 900 }}>{name}</div>
+          <div style={{ fontSize: 13, opacity: 0.8, marginTop: 2 }}>
+            {title} — {country} · {contract}
+          </div>
+          <div style={{ fontSize: 13, opacity: 0.8, marginTop: 2 }}>Start date: {start}</div>
+        </div>
+
+        <div style={{ marginTop: 10 }}>
+          <div style={{ fontWeight: 900, marginBottom: 6 }}>Decision</div>
+          <div style={{ fontSize: 13, opacity: 0.9, lineHeight: 1.45, whiteSpace: "pre-wrap" }}>
+            {rhMeaning(status ?? undefined, runInput)}
+          </div>
+          {summary && (
+            <div style={{ marginTop: 8, fontSize: 12, opacity: 0.72, whiteSpace: "pre-wrap" }}>{summary}</div>
+          )}
+        </div>
+      </div>
+
+      <div style={{ padding: 12, borderRadius: 14, border: "1px solid rgba(0,0,0,0.10)" }}>
+        <div style={{ fontWeight: 900, marginBottom: 8 }}>Actions executed by the system</div>
+        <ActionRow label="Create work account" status={accounts?.status ?? "—"} />
+        <ActionRow label="Order hardware" status={hardware?.status ?? "—"} />
+        <ActionRow label="Configure access rights" status={access?.status ?? "—"} />
+      </div>
+
+      <div style={{ padding: 12, borderRadius: 14, border: "1px solid rgba(0,0,0,0.10)" }}>
+        <div style={{ fontWeight: 900, marginBottom: 6 }}>Why this is Zero-Touch</div>
+        <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, opacity: 0.9, lineHeight: 1.5 }}>
+          <li>No checklists as the primary mechanism.</li>
+          <li>No manual ticket assignment required to progress.</li>
+          <li>Humans intervene only when ambiguity is detected (FLAGGED / anomalies).</li>
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+function AuditLogEmbedded({ steps, status }: { steps: RunStep[]; status: string | null }) {
+  return (
+    <div style={{ padding: 12, borderRadius: 14, border: "1px solid rgba(0,0,0,0.10)" }}>
+      <div style={{ fontSize: 16, fontWeight: 900, marginBottom: 6 }}>Audit log</div>
+      <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 10 }}>
+        Full traceability for audit & compliance. Status: <b>{status ?? "—"}</b>
+      </div>
+
+      <div style={{ display: "grid", gap: 8 }}>
+        {steps.length === 0 && <div style={{ fontSize: 13, opacity: 0.8 }}>No steps logged yet.</div>}
+        {steps.map((s) => (
+          <div key={s.id} style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+            <div style={{ fontWeight: 800, opacity: 0.9 }}>{humanLabel(s.step)}</div>
+            <div style={{ fontWeight: 900 }}>{s.status}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ marginTop: 12, padding: 12, borderRadius: 12, background: "rgba(0,0,0,0.04)" }}>
+        <div style={{ fontWeight: 900, marginBottom: 6 }}>Why this is Zero-Touch</div>
+        <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, opacity: 0.9, lineHeight: 1.5 }}>
+          <li>Deterministic steps are executed automatically by the system.</li>
+          <li>Humans intervene only when ambiguity is detected (FLAGGED).</li>
+          <li>Every action is logged for traceability.</li>
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------- UI helpers ------------------------------- */
+
+function panel(): React.CSSProperties {
+  return {
+    border: "1px solid rgba(0,0,0,0.12)",
+    borderRadius: 18,
+    padding: 16,
+    background: "white",
+    overflow: "auto",
+  };
+}
+
+const smallBtn: React.CSSProperties = {
+  padding: "8px 10px",
+  borderRadius: 12,
+  border: "1px solid rgba(0,0,0,0.12)",
+  background: "white",
+  cursor: "pointer",
+  fontWeight: 800,
+  fontSize: 12,
+};
+
+const preStyle: React.CSSProperties = {
+  margin: 0,
+  padding: 12,
+  borderRadius: 12,
+  background: "rgba(0,0,0,0.04)",
+  overflow: "auto",
+  fontSize: 12,
+  lineHeight: 1.4,
+};
+
+function tabBtn(active: boolean): React.CSSProperties {
+  return {
+    flex: 1,
+    padding: "10px 12px",
+    borderRadius: 12,
+    border: "1px solid rgba(0,0,0,0.12)",
+    background: active ? "rgba(0,0,0,0.06)" : "white",
+    cursor: "pointer",
+    fontWeight: 900,
+    fontSize: 13,
+    opacity: active ? 1 : 0.9,
+  };
 }
 
 function ScenarioButton({
@@ -423,7 +579,7 @@ function ScenarioButton({
           {title}
           <div style={{ fontSize: 12, opacity: 0.7, fontWeight: 700, marginTop: 6 }}>{subtitle}</div>
         </div>
-        {active && <div style={{ fontSize: 12, opacity: 0.8, fontWeight: 900 }}>Running…</div>}
+        {active && <div style={{ fontSize: 12, opacity: 0.85, fontWeight: 900 }}>Running…</div>}
       </div>
     </button>
   );
@@ -440,11 +596,12 @@ function RuleRow({ label, value }: { label: string; value: string }) {
 
 function EvidenceBlock({ title, status, lines }: { title: string; status: string; lines: Array<string | null> }) {
   const filtered = lines.filter(Boolean) as string[];
+
   return (
     <div style={{ padding: 10, borderRadius: 12, background: "rgba(0,0,0,0.04)", marginTop: 10 }}>
       <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
         <div style={{ fontWeight: 900 }}>{title}</div>
-        <div style={{ fontWeight: 900, opacity: 0.85 }}>{status}</div>
+        <div style={{ fontWeight: 900, opacity: 0.9 }}>{status}</div>
       </div>
       {filtered.length > 0 && (
         <ul style={{ margin: "8px 0 0 0", paddingLeft: 18, fontSize: 13, opacity: 0.9 }}>
@@ -457,34 +614,62 @@ function EvidenceBlock({ title, status, lines }: { title: string; status: string
   );
 }
 
-const secondaryLink: React.CSSProperties = {
-  display: "inline-block",
-  padding: "10px 12px",
-  borderRadius: 12,
-  border: "1px solid rgba(0,0,0,0.12)",
-  textDecoration: "none",
-  color: "inherit",
-  fontWeight: 800,
-  opacity: 0.9,
-};
+function ActionRow({ label, status }: { label: string; status: string }) {
+  const s = (status ?? "").toUpperCase();
+  const human =
+    s === "SUCCESS" ? "Completed" : s === "FAILED" ? "Failed" : s === "SKIPPED" ? "Skipped" : "—";
 
-const ghostBtn: React.CSSProperties = {
-  padding: "10px 12px",
-  borderRadius: 12,
-  border: "1px solid rgba(0,0,0,0.12)",
-  background: "white",
-  cursor: "pointer",
-  fontWeight: 800,
-};
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: 12, borderRadius: 14, border: "1px solid rgba(0,0,0,0.10)", marginTop: 8 }}>
+      <div style={{ fontWeight: 900 }}>{label}</div>
+      <div style={{ fontWeight: 900, opacity: 0.9 }}>{human}</div>
+    </div>
+  );
+}
 
-function tabBtn(active: boolean): React.CSSProperties {
-  return {
-    flex: 1,
-    padding: "10px 12px",
-    borderRadius: 12,
-    border: "1px solid rgba(0,0,0,0.12)",
-    background: active ? "rgba(0,0,0,0.06)" : "white",
-    cursor: "pointer",
-    fontWeight: 900,
+/* ---------------------------- Domain logic helpers ------------------------ */
+
+function findStep(steps: RunStep[], name: string) {
+  const n = name.toUpperCase();
+  return steps.find((s) => (s.step ?? "").toUpperCase() === n) ?? null;
+}
+
+function evidenceStatusLabel(stepStatus: string | null) {
+  if (!stepStatus) return "—";
+  if (stepStatus === "SUCCESS") return "Completed";
+  if (stepStatus === "FAILED") return "Failed";
+  if (stepStatus === "SKIPPED") return "Skipped";
+  return stepStatus;
+}
+
+function rhMeaning(status?: string, input?: any) {
+  const s = (status ?? "").toUpperCase();
+  if (!s) return "Run a scenario to generate an onboarding decision.";
+  if (s === "SUCCESS") {
+    return "✅ No action required. The system executed all deterministic onboarding actions automatically.";
+  }
+  if (s === "FLAGGED") {
+    const role = input?.job?.title ? ` (“${input.job.title}”)` : "";
+    return `⚠️ Human review required. The system detected ambiguity that needs HR input${role}.`;
+  }
+  if (s === "PARTIAL") {
+    return "🟡 Partially completed. Most actions were executed automatically, but at least one step requires follow-up.";
+  }
+  if (s === "FAILED") {
+    return "❌ Failed. The system could not complete the onboarding run. Please inspect the audit log.";
+  }
+  return s;
+}
+
+function humanLabel(step: string) {
+  const s = (step ?? "").toUpperCase();
+  const map: Record<string, string> = {
+    RECEIVE_EVENT: "Offer signed received",
+    DECISION: "Required resources identified",
+    PROVISION_ACCOUNTS: "Work account created",
+    PROVISION_HARDWARE: "Hardware ordered",
+    PROVISION_ACCESS: "Access rights configured",
+    FINISH_RUN: "Onboarding completed",
   };
+  return map[s] ?? step;
 }
