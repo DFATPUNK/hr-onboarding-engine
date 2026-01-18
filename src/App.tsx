@@ -33,7 +33,7 @@ export default function App() {
         </Routes>
       </main>
 
-      <footer style={{ marginTop: 12, fontSize: 12, opacity: 0.7 }}>
+      <footer style={{ fontSize: 12, opacity: 0.7 }}>
         Demo — Serverless APIs (Vercel) + Activepieces + Supabase.
       </footer>
     </div>
