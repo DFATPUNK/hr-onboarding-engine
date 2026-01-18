@@ -23,23 +23,6 @@ export default function Home() {
   const [runSteps, setRunSteps] = useState<RunStep[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  const [payloadMode, setPayloadMode] = useState<"text" | "json">("text");
-
-  const ashbyPayload = {
-    event: "candidate.hired",
-    candidate: {
-      name: "Ana Lopez",
-      email: "ana.lopez@alan-demo.com",
-    },
-    job: {
-      title: "Backend Engineer",
-      department: "Engineering",
-    },
-    start_date: "2026-02-03",
-    contract_type: "Permanent",
-    country: "FR",
-  };
-
   const basePayload: OfferSignedPayload = useMemo(
     () => ({
       event_id: `evt_demo_${Date.now()}`,
@@ -180,7 +163,11 @@ export default function Home() {
           <div style={{ fontSize: 16, fontWeight: 900, marginBottom: 10 }}>Run summary</div>
 
           <div style={{ marginTop: 12, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-            <span style={toneStyle(badge.tone)}>{badge.label}</span>
+            {runId ? (
+              <span style={toneStyle(badge.tone)}>{badge.label}</span>
+            ) : (
+              <span style={{ fontSize: 12, opacity: 0.7 }}>Run a scenario to generate a decision</span>
+            )}
 
             {!runId && lastRunId && (
               <button onClick={showLastRun} disabled={loading} style={smallBtn}>
@@ -200,52 +187,62 @@ export default function Home() {
           </div>
 
           {/* Decision rules */}
-          <div style={{ marginTop: 12, padding: 12, borderRadius: 14, border: "1px solid rgba(0,0,0,0.10)" }}>
-            <div style={{ fontWeight: 900, marginBottom: 8 }}>Decision rules applied</div>
-            <div style={{ display: "grid", gap: 8, fontSize: 13, opacity: 0.92 }}>
-              <RuleRow label="Country" value={rules.country} />
-              <RuleRow label="Department" value={rules.department} />
-              <RuleRow label="Contract type" value={rules.contractType} />
-              <RuleRow label="Role" value={rules.role} />
-              <RuleRow label="Human involvement" value={humanInvolvement} />
+          {!runId && (
+            <div style={{ marginTop: 12, padding: 12, borderRadius: 14, background: "rgba(0,0,0,0.04)" }}>
+              <div style={{ fontWeight: 900, marginBottom: 6 }}>Start here</div>
+              <div style={{ fontSize: 13, opacity: 0.9, lineHeight: 1.45 }}>
+                Choose a scenario in the middle column to simulate an onboarding event.
+                <br />
+                You’ll then see: decision rules + evidence + onboarding details.
+              </div>
+              <div style={{ marginTop: 12, padding: 12, borderRadius: 14, border: "1px solid rgba(0,0,0,0.10)" }}>
+                <div style={{ fontWeight: 900, marginBottom: 8 }}>Decision rules applied</div>
+                <div style={{ display: "grid", gap: 8, fontSize: 13, opacity: 0.92 }}>
+                  <RuleRow label="Country" value={rules.country} />
+                  <RuleRow label="Department" value={rules.department} />
+                  <RuleRow label="Contract type" value={rules.contractType} />
+                  <RuleRow label="Role" value={rules.role} />
+                  <RuleRow label="Human involvement" value={humanInvolvement} />
+                </div>
+              </div>
+
+              {/* Evidence */}
+              <div style={{ marginTop: 12, padding: 12, borderRadius: 14, border: "1px solid rgba(0,0,0,0.10)" }}>
+                <div style={{ fontWeight: 900, marginBottom: 8 }}>Evidence</div>
+
+                <EvidenceBlock
+                  title="Work account"
+                  status={evidenceStatusLabel(evidence.accounts.status)}
+                  lines={[
+                    evidence.accounts.output?.account?.username ? `Username: ${evidence.accounts.output.account.username}` : null,
+                    evidence.accounts.output?.action_id ? `Action ID: ${evidence.accounts.output.action_id}` : null,
+                  ]}
+                />
+
+                <EvidenceBlock
+                  title="Hardware"
+                  status={evidenceStatusLabel(evidence.hardware.status)}
+                  lines={[
+                    evidence.hardware.output?.bundle ? `Bundle: ${evidence.hardware.output.bundle}` : null,
+                    evidence.hardware.output?.ticket_id ? `Order/Ticket: ${evidence.hardware.output.ticket_id}` : null,
+                    evidence.hardware.status === "FAILED" && !evidence.hardware.output
+                      ? "Hardware ordering failed (simulated provider outage)."
+                      : null,
+                  ]}
+                />
+
+                <EvidenceBlock
+                  title="Access rights"
+                  status={evidenceStatusLabel(evidence.access.status)}
+                  lines={[
+                    Array.isArray(evidence.access.output?.accesses)
+                      ? `Services: ${evidence.access.output.accesses.join(", ")}`
+                      : null,
+                  ]}
+                />
+              </div>
             </div>
-          </div>
-
-          {/* Evidence */}
-          <div style={{ marginTop: 12, padding: 12, borderRadius: 14, border: "1px solid rgba(0,0,0,0.10)" }}>
-            <div style={{ fontWeight: 900, marginBottom: 8 }}>Evidence</div>
-
-            <EvidenceBlock
-              title="Work account"
-              status={evidenceStatusLabel(evidence.accounts.status)}
-              lines={[
-                evidence.accounts.output?.account?.username ? `Username: ${evidence.accounts.output.account.username}` : null,
-                evidence.accounts.output?.action_id ? `Action ID: ${evidence.accounts.output.action_id}` : null,
-              ]}
-            />
-
-            <EvidenceBlock
-              title="Hardware"
-              status={evidenceStatusLabel(evidence.hardware.status)}
-              lines={[
-                evidence.hardware.output?.bundle ? `Bundle: ${evidence.hardware.output.bundle}` : null,
-                evidence.hardware.output?.ticket_id ? `Order/Ticket: ${evidence.hardware.output.ticket_id}` : null,
-                evidence.hardware.status === "FAILED" && !evidence.hardware.output
-                  ? "Hardware ordering failed (simulated provider outage)."
-                  : null,
-              ]}
-            />
-
-            <EvidenceBlock
-              title="Access rights"
-              status={evidenceStatusLabel(evidence.access.status)}
-              lines={[
-                Array.isArray(evidence.access.output?.accesses)
-                  ? `Services: ${evidence.access.output.accesses.join(", ")}`
-                  : null,
-              ]}
-            />
-          </div>
+          )}
 
           {error && (
             <div style={{ marginTop: 12, padding: 12, borderRadius: 12, background: "rgba(255,0,0,0.08)" }}>
@@ -264,49 +261,12 @@ export default function Home() {
             <div style={{ fontSize: 13, opacity: 0.9, lineHeight: 1.5 }}>
               <ul style={{ margin: 0, paddingLeft: 18 }}>
                 <li>
-                  You trigger an <b>Ashby-like</b> event (<b>Candidate hired</b>) for Ana Lopez.
+                  You trigger an <b>Ashby-like</b> event (<b>Candidate hired</b>) for our fictional candidate Ana Lopez.
                 </li>
                 <li>The system executes deterministic onboarding actions automatically.</li>
                 <li>HR is involved only when ambiguity is detected (FLAGGED).</li>
               </ul>
             </div>
-          </div>
-
-          {/* Ashby Candidate Hired payload with 2 lecture modes : text & JSON */}
-          <div style={{ marginTop: 12, padding: 12, borderRadius: 14, border: "1px solid rgba(0,0,0,0.10)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-              <div style={{ fontWeight: 900 }}>Ashby event payload (simulated)</div>
-              <div style={segmentedWrap}>
-                <button onClick={() => setPayloadMode("text")} style={segmentedBtn(payloadMode === "text", "left")}>
-                  Text
-                </button>
-                <button onClick={() => setPayloadMode("json")} style={segmentedBtn(payloadMode === "json", "right")}>
-                  JSON
-                </button>
-              </div>
-            </div>
-
-            {payloadMode === "text" ? (
-              <div style={{ marginTop: 10, fontSize: 13, opacity: 0.9, lineHeight: 1.5 }}>
-                Our candidate <b>{ashbyPayload.candidate.name}</b> (<b>{ashbyPayload.candidate.email}</b>) has been
-                <b>hired</b>! {ashbyPayload.candidate.name} will join our{" "}
-                <b>{ashbyPayload.job.department}</b> team as <b>{ashbyPayload.job.title}</b>, starting on{" "}
-                <b>{formatMDY(ashbyPayload.start_date)}</b>. Her contract type is <b>{ashbyPayload.contract_type}</b>.
-              </div>
-            ) : (
-              <pre style={{
-                marginTop: 10,
-                padding: 12,
-                borderRadius: 12,
-                background: "rgba(0,0,0,0.04)",
-                fontSize: 12,
-                lineHeight: 1.4,
-                whiteSpace: "pre-wrap",
-                overflow: "hidden"
-              }}>
-                {JSON.stringify(ashbyPayload, null, 2)}
-              </pre>
-            )}
           </div>
 
           <div style={{ marginTop: 12, fontSize: 13, opacity: 0.8 }}>
@@ -468,10 +428,34 @@ function CandidateApplicationPanel() {
 }
 
 function QA({ q, a }: { q: string; a: string }) {
+  const [open, setOpen] = useState(false);
+
   return (
     <div style={{ padding: 12, borderRadius: 12, background: "rgba(0,0,0,0.04)" }}>
-      <div style={{ fontWeight: 900, marginBottom: 6 }}>{q}</div>
-      <div style={{ fontSize: 13, opacity: 0.92, whiteSpace: "pre-wrap", lineHeight: 1.45 }}>{a}</div>
+      <div style={{ fontWeight: 900, marginBottom: 8 }}>{q}</div>
+
+      <button
+        onClick={() => setOpen((v) => !v)}
+        style={{
+          padding: 0,
+          border: "none",
+          background: "transparent",
+          cursor: "pointer",
+          fontWeight: 900,
+          fontSize: 13,
+          textDecoration: "underline",
+          opacity: 0.9,
+        }}
+        aria-expanded={open}
+      >
+        {open ? "Hide Ana's answer" : "Read Ana's answer"}
+      </button>
+
+      {open && (
+        <div style={{ marginTop: 10, fontSize: 13, opacity: 0.92, whiteSpace: "pre-wrap", lineHeight: 1.45 }}>
+          {a}
+        </div>
+      )}
     </div>
   );
 }
