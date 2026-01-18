@@ -147,19 +147,7 @@ export default function Home() {
 
   // Layout: 3 columns (1/4, 1/4, 1/2)
   return (
-    <div style={{ width: "100%" }}>
-      {/* Page-level narrative (outside containers) */}
-      <div style={{ marginBottom: 14 }}>
-        <div style={{ fontSize: 20, fontWeight: 950 }}>Automated onboarding — Zero Touch</div>
-        <div style={{ fontSize: 13, opacity: 0.75 }}>
-          From offer signed to Day 1 readiness — without manual coordination.
-        </div>
-        <div style={{ fontSize: 14, opacity: 0.9, marginTop: 8, maxWidth: 980, lineHeight: 1.45 }}>
-          This demo simulates what happens after a new hire signs an offer. The system executes deterministic onboarding
-          actions automatically, and escalates to HR only when ambiguity is detected.
-        </div>
-      </div>
-
+    <div style={{ width: "100%", minHeight: 0 }}>
       <div
         style={{
           display: "grid",
@@ -360,9 +348,6 @@ export default function Home() {
         </section>
       </div>
 
-      <div style={{ marginTop: 10, fontSize: 12, opacity: 0.7 }}>
-        Demo — Serverless APIs (Vercel) + Activepieces + Supabase.
-      </div>
     </div>
   );
 }
@@ -501,9 +486,9 @@ function panel(): React.CSSProperties {
   return {
     border: "1px solid rgba(0,0,0,0.12)",
     borderRadius: 18,
-    padding: 16,
+    padding: 14,
     background: "white",
-    overflow: "auto",
+    minHeight: 0
   };
 }
 
