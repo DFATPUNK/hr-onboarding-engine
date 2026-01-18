@@ -520,7 +520,7 @@ function ScenarioButton({
 function ActionRow({ label, status }: { label: string; status: string }) {
   const s = (status ?? "").toUpperCase();
   const human =
-    s === "SUCCESS" ? "Completed" : s === "FAILED" ? "Failed" : s === "SKIPPED" ? "Skipped" : "—";
+    s === "SUCCESS" ? "Completed" : s === "FAILED" ? "Failed" : s === "SKIPPED" ? "Skipped" : "Safely halted";
 
   return (
     <div style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: 12, borderRadius: 14, border: "1px solid rgba(0,0,0,0.10)", marginTop: 8 }}>
@@ -542,7 +542,7 @@ function stepStatusOrFallback(step: RunStep | null, runStatus: string | null) {
   const s = (runStatus ?? "").toUpperCase();
   if (s === "FAILED") return "FAILED";
   if (s === "FLAGGED") return "SKIPPED";
-  return "—";
+  return "-";
 }
 
 function rhMeaning(status?: string, input?: any) {
