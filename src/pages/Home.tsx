@@ -527,16 +527,6 @@ const smallBtn: React.CSSProperties = {
   fontSize: 12,
 };
 
-const preStyle: React.CSSProperties = {
-  margin: 0,
-  padding: 12,
-  borderRadius: 12,
-  background: "rgba(0,0,0,0.04)",
-  overflow: "auto",
-  fontSize: 12,
-  lineHeight: 1.4,
-};
-
 function tabBtn(active: boolean): React.CSSProperties {
   return {
     flex: 1,
