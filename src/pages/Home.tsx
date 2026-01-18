@@ -172,7 +172,6 @@ export default function Home() {
             gap: 16,
             width: "100%",
             maxWidth: "100vw",
-            height: "100%",
             minHeight: 0
           }}
       >
@@ -289,9 +288,9 @@ export default function Home() {
 
             {payloadMode === "text" ? (
               <div style={{ marginTop: 10, fontSize: 13, opacity: 0.9, lineHeight: 1.5 }}>
-                Our candidate <b>{ashbyPayload.candidate.name}</b> (<b>{ashbyPayload.candidate.email}</b>) has been{" "}
-                <b>{ashbyPayload.event}</b>! {ashbyPayload.candidate.name} will join our{" "}
-                <b>{ashbyPayload.job.department}</b> as <b>{ashbyPayload.job.title}</b>, starting on{" "}
+                Our candidate <b>{ashbyPayload.candidate.name}</b> (<b>{ashbyPayload.candidate.email}</b>) has been
+                <b>hired</b>! {ashbyPayload.candidate.name} will join our{" "}
+                <b>{ashbyPayload.job.department}</b> team as <b>{ashbyPayload.job.title}</b>, starting on{" "}
                 <b>{formatMDY(ashbyPayload.start_date)}</b>. Her contract type is <b>{ashbyPayload.contract_type}</b>.
               </div>
             ) : (
@@ -382,19 +381,129 @@ export default function Home() {
 /* ----------------------------- Embedded panels ---------------------------- */
 
 function CandidateApplicationPanel() {
-  // Placeholder: next step we will replace by an Ashby-style application mock + CV link
+  const [mode, setMode] = useState<"text" | "json">("text");
+
+  // Mock Ashby-like event payload for Alan-style context
+  const ashby = {
+    event: "candidate.hired",
+    occurred_at: "2026-02-01T09:12:00Z",
+    candidate: {
+      name: "Ana Lopez",
+      email: "ana.lopez@alan-demo.com",
+      location: "Paris, FR",
+    },
+    job: {
+      title: "Backend Engineer",
+      department: "Engineering",
+      level: "B2",
+    },
+    start_date: "2026-02-03",
+    contract_type: "Permanent",
+    country: "FR",
+    requisition_id: "req_alan_1432",
+    source: "Inbound",
+  };
+
+  const q1 =
+    "Share a specific example of a manual internal process you fully automated using low-code tools or APIs. What was the 'Before' vs 'After' impact?";
+  const a1 =
+    "Before: onboarding required HR to copy-paste details across tools (HRIS, Slack, IT) and manually chase confirmations using checklists. This created delays, inconsistent access setups, and fragile handovers.\n\nAfter: I designed an event-driven onboarding flow triggered by “candidate.hired”. Deterministic actions (account creation, hardware order, access provisioning) ran automatically via API calls, while ambiguous cases were flagged for human review. The system wrote an audit trail for each action.\n\nImpact: onboarding lead time decreased from “hours spread over multiple handoffs” to “minutes with zero manual coordination” for standard cases, with fewer errors and higher traceability.";
+
+  const q2 =
+    "Part of this role involves modeling Compensation Strategy. Please describe your experience with salary grids or budget modeling. How do you approach the trade-off between market competitiveness and budget constraints?";
+  const a2 =
+    "I treat compensation as a system: internal fairness, market competitiveness, and budget sustainability must be modeled together. My approach is to build a clear grid (levels, roles, ranges) and make exceptions explicit and documented.\n\nI start by defining the compensation philosophy (target percentile and consistency rules), then I model budget impact under multiple scenarios (e.g., +3% uplift for specific families, re-leveling, targeted adjustments). Market data is a signal, not a mandate: I prioritize internal coherence and retention risk, then phase changes with clear guardrails.\n\nWhen constraints are tight, I prefer targeted, transparent adjustments over broad, uneven increases, and I always track downstream effects (compression, equity across teams, and hiring competitiveness).";
+
   return (
-    <div style={{ padding: 12, borderRadius: 14, border: "1px solid rgba(0,0,0,0.10)" }}>
-      <div style={{ fontWeight: 900, marginBottom: 6 }}>Candidate application</div>
-      <div style={{ fontSize: 13, opacity: 0.9, lineHeight: 1.5 }}>
-        This tab will display Ana’s (mocked) Ashby application: key answers + attachments (CV).
+    <div style={{ display: "grid", gap: 12 }}>
+      <div style={{ padding: 12, borderRadius: 14, border: "1px solid rgba(0,0,0,0.10)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 900 }}>Candidate application</div>
+            <div style={{ fontSize: 12, opacity: 0.75 }}>
+              Simulated Ashby “Candidate hired” payload + answers to application questions.
+            </div>
+          </div>
+
+          <div style={segmentedWrap}>
+            <button onClick={() => setMode("text")} style={segmentedBtn(mode === "text", "left")}>Text</button>
+            <button onClick={() => setMode("json")} style={segmentedBtn(mode === "json", "right")}>JSON</button>
+          </div>
+        </div>
+
+        {mode === "text" ? (
+          <div style={{ marginTop: 10, fontSize: 13, opacity: 0.92, lineHeight: 1.5 }}>
+            Our candidate <b>{ashby.candidate.name}</b> (<b>{ashby.candidate.email}</b>) has been{" "}
+            <b>{ashby.event}</b>. {ashby.candidate.name} will join our <b>{ashby.job.department}</b> team as{" "}
+            <b>{ashby.job.title}</b>, starting on <b>{formatMDY(ashby.start_date)}</b>. Contract type:{" "}
+            <b>{ashby.contract_type}</b>.
+          </div>
+        ) : (
+          <pre style={preStyleTight}>{JSON.stringify(ashby, null, 2)}</pre>
+        )}
+
+        <div style={{ marginTop: 12, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <a
+            href="/ana_lopez_resume.pdf"
+            style={downloadBtn}
+            download
+          >
+            Download resume (PDF)
+          </a>
+          <span style={{ fontSize: 12, opacity: 0.7 }}>
+            (Add a file in /public named <b>ana_lopez_resume.pdf</b>)
+          </span>
+        </div>
       </div>
-      <div style={{ marginTop: 10, padding: 12, borderRadius: 12, background: "rgba(0,0,0,0.04)", fontSize: 13, opacity: 0.9 }}>
-        Coming next: beautified Ashby JSON → “Candidate hired” payload + application answers.
+
+      <div style={{ padding: 12, borderRadius: 14, border: "1px solid rgba(0,0,0,0.10)" }}>
+        <div style={{ fontWeight: 900, marginBottom: 10 }}>Application questions</div>
+
+        <QA q={q1} a={a1} />
+        <div style={{ height: 10 }} />
+        <QA q={q2} a={a2} />
       </div>
     </div>
   );
 }
+
+function QA({ q, a }: { q: string; a: string }) {
+  return (
+    <div style={{ padding: 12, borderRadius: 12, background: "rgba(0,0,0,0.04)" }}>
+      <div style={{ fontWeight: 900, marginBottom: 6 }}>{q}</div>
+      <div style={{ fontSize: 13, opacity: 0.92, whiteSpace: "pre-wrap", lineHeight: 1.45 }}>{a}</div>
+    </div>
+  );
+}
+
+function formatMDY(iso: string) {
+  const [y, m, d] = String(iso).split("-");
+  if (!y || !m || !d) return iso;
+  return `${m}/${d}/${y}`;
+}
+
+const downloadBtn: React.CSSProperties = {
+  display: "inline-block",
+  padding: "10px 12px",
+  borderRadius: 12,
+  border: "1px solid rgba(0,0,0,0.12)",
+  textDecoration: "none",
+  color: "inherit",
+  fontWeight: 900,
+  background: "white",
+};
+
+const preStyleTight: React.CSSProperties = {
+  marginTop: 10,
+  marginBottom: 0,
+  padding: 12,
+  borderRadius: 12,
+  background: "rgba(0,0,0,0.04)",
+  fontSize: 12,
+  lineHeight: 1.4,
+  whiteSpace: "pre-wrap",
+  overflow: "hidden",
+};
 
 function OnboardingDetailsEmbedded({
   runId,
@@ -678,34 +787,25 @@ function humanLabel(step: string) {
   return map[s] ?? step;
 }
 
-function formatMDY(iso: string) {
-  // iso "YYYY-MM-DD"
-  const [y, m, d] = String(iso).split("-");
-  if (!y || !m || !d) return iso;
-  return `${m}/${d}/${y}`;
-}
-
 const segmentedWrap: React.CSSProperties = {
   display: "inline-flex",
   border: "1px solid rgba(0,0,0,0.12)",
-  borderRadius: 12,
+  borderRadius: 14,
   overflow: "hidden",
 };
 
 function segmentedBtn(active: boolean, side: "left" | "right"): React.CSSProperties {
   return {
-    padding: "6px 10px",
+    padding: "8px 14px",
     border: "none",
     background: active ? "rgba(0,0,0,0.06)" : "white",
     cursor: "pointer",
     fontWeight: 900,
-    fontSize: 12,
-    // coins
-    borderTopLeftRadius: side === "left" ? 12 : 0,
-    borderBottomLeftRadius: side === "left" ? 12 : 0,
-    borderTopRightRadius: side === "right" ? 12 : 0,
-    borderBottomRightRadius: side === "right" ? 12 : 0,
-    // séparation interne
+    fontSize: 13,
+    borderTopLeftRadius: side === "left" ? 14 : 0,
+    borderBottomLeftRadius: side === "left" ? 14 : 0,
+    borderTopRightRadius: side === "right" ? 14 : 0,
+    borderBottomRightRadius: side === "right" ? 14 : 0,
     borderRight: side === "left" ? "1px solid rgba(0,0,0,0.12)" : "none",
   };
 }
