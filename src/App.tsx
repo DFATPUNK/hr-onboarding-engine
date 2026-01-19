@@ -1,7 +1,5 @@
-import { Routes, Route, Link } from "react-router-dom";
+import { Routes, Route, Link, Navigate } from "react-router-dom";
 import Home from "./pages/Home";
-import OnboardingDetails from "./pages/OnboardingDetails";
-import AuditLog from "./pages/AuditLog";
 
 export default function App() {
   return (
@@ -21,21 +19,21 @@ export default function App() {
           </div>
         </div>
 
-        <a href="https://jeremybrunet.com" target="_blank" rel="noreferrer" style={{ fontSize: 14 }}>
-          jeremybrunet.com
+        <a
+          href="https://writebook.jeremybrunet.com/3/alan"
+          target="_blank"
+          rel="noreferrer"
+          style={{ fontSize: 13, fontWeight: 700, textDecoration: "underline" }}
+        >
+          About this demo & my application →
         </a>
       </header>
       <main style={{ flex: 1, minHeight: 0 }}>
         <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/onboarding/:runId" element={<OnboardingDetails />} />
-          <Route path="/audit/:runId" element={<AuditLog />} />
+          <Route path="/alan" element={<Home />} />
+          <Route path="/" element={<Navigate to="/alan" />} />
         </Routes>
       </main>
-
-      <footer style={{ marginTop: 12, fontSize: 12, opacity: 0.7 }}>
-        Demo — Serverless APIs (Vercel) + Activepieces + Supabase.
-      </footer>
     </div>
   );
 }

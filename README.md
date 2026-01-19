@@ -1,73 +1,118 @@
-# React + TypeScript + Vite
+# HR Onboarding Engine — Zero Touch POC
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A proof of concept demonstrating how employee onboarding can be executed automatically, with human involvement only when required.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## One-liner
 
-## React Compiler
+**Event-driven HR onboarding with explicit decisions, zero-touch execution, and full auditability.**
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+---
 
-## Expanding the ESLint configuration
+## The problem
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+Traditional onboarding processes rely on:
+- Manual checklists
+- Cross-team coordination
+- Implicit handovers between HR, IT, and managers
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+As hiring scales, this approach:
+- Creates operational bottlenecks
+- Introduces errors and inconsistencies
+- Makes accountability and auditing difficult
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+---
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## What this POC demonstrates
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### 1. Event-driven onboarding
+The system reacts to a single event:
+> **Offer signed / Candidate hired**
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+From that point, onboarding becomes a deterministic process.
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+---
+
+### 2. Zero-touch by default
+For standard cases:
+- Accounts are created automatically
+- Hardware is ordered
+- Access rights are configured
+- No human intervention is required
+
+---
+
+### 3. Explicit escalation
+When ambiguity or failure occurs:
+- The run is flagged (FLAGGED / PARTIAL / FAILED)
+- The reason is explained in plain language
+- HR is given clear next steps
+
+No silent failures. No hidden complexity.
+
+---
+
+### 4. Full audit trail
+Every action is:
+- Logged step by step
+- Timestamped
+- Reviewable in an audit log
+
+This supports compliance, debugging, and trust.
+
+---
+
+## Scenarios covered
+
+- **Standard onboarding**  
+  Expected outcome: SUCCESS — no action required
+
+- **Unknown role**  
+  Expected outcome: FLAGGED — human review required
+
+- **IT issue**  
+  Expected outcome: PARTIAL — follow-up required
+
+---
+
+## Tech stack
+
+- **Activepieces** — workflow orchestration
+- **Supabase** — data storage (runs, steps, audit logs)
+- **Serverless APIs (Vercel)** — event ingestion and logging
+- **React** — RH-first user interface
+
+---
+
+## Live demo
+
+👉 https://demos.jeremybrunet.com
+
+---
+
+## What this project is not
+
+- ❌ A production-ready system
+- ❌ A full HR platform
+- ❌ A generic automation tutorial
+
+It is a **focused design and systems thinking exercise**, built to explore how HR operations can scale sustainably.
+
+---
+
+## Why this project was built
+
+This project was created to explore the role of **HR Tech & Automation** as a force multiplier:
+- Reducing operational toil
+- Increasing clarity and trust
+- Letting HR teams focus on high-impact work
+
+---
+
+## Author
+
+Built by **Jérémy Brunet**  
+https://www.jeremybrunet.com
+
+If you’d like a walkthrough of the demo or the design decisions behind it, feel free to reach out.
