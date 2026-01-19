@@ -99,7 +99,7 @@ export default function Home() {
             <div style={{ fontSize: 13, opacity: 0.9, lineHeight: 1.5 }}>
               <ul style={{ margin: 0, paddingLeft: 18 }}>
                 <li>
-                  You trigger an <b>Ashby-like</b> event (<b>Candidate hired</b>) for our fictional candidate Ana Lopez.
+                  You trigger an <b>Ashby-like</b> event (<b>Candidate hired</b>) for our fictional candidate <b>Ana Lopez</b>.
                 </li>
                 <li>The system executes deterministic onboarding actions automatically.</li>
                 <li>HR is involved only when ambiguity is detected (FLAGGED).</li>
@@ -108,7 +108,7 @@ export default function Home() {
           </div>
 
           <div style={{ marginTop: 12, fontSize: 13, opacity: 0.8 }}>
-            Run one scenario to generate an onboarding decision.
+            Click on one scenario below to generate an onboarding decision.
           </div>
 
           <div style={{ marginTop: 12 }}>
@@ -232,7 +232,7 @@ function CandidateApplicationPanel() {
         {mode === "text" ? (
           <div style={{ marginTop: 10, fontSize: 13, opacity: 0.92, lineHeight: 1.5 }}>
             Our candidate <b>{ashby.candidate.name}</b> (<b>{ashby.candidate.email}</b>) has been{" "}
-            <b>{ashby.event}</b>. {ashby.candidate.name} will join our <b>{ashby.job.department}</b> team as{" "}
+            <b>hired</b>. {ashby.candidate.name} will join our <b>{ashby.job.department}</b> team as{" "}
             <b>{ashby.job.title}</b>, starting on <b>{formatMDY(ashby.start_date)}</b>. Contract type:{" "}
             <b>{ashby.contract_type}</b>.
           </div>
@@ -242,20 +242,21 @@ function CandidateApplicationPanel() {
 
         <div style={{ marginTop: 12, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
           <a
-            href="/ana_lopez_resume.pdf"
+            href="/assets/ana-lopez-resume.pdf"
+            target="_blank"
+            rel="noreferrer"
             style={downloadBtn}
-            download
           >
             Download resume (PDF)
           </a>
           <span style={{ fontSize: 12, opacity: 0.7 }}>
-            (Add a file in /public named <b>ana_lopez_resume.pdf</b>)
+            (Fictional resume for demo purposes)
           </span>
         </div>
       </div>
 
       <div style={{ padding: 12, borderRadius: 14, border: "1px solid rgba(0,0,0,0.10)" }}>
-        <div style={{ fontWeight: 900, marginBottom: 10 }}>Application questions</div>
+        <div style={{ fontWeight: 700, marginBottom: 10 }}>Application questions</div>
 
         <QA q={q1} a={a1} />
         <div style={{ height: 10 }} />
@@ -280,9 +281,8 @@ function QA({ q, a }: { q: string; a: string }) {
           background: "transparent",
           cursor: "pointer",
           fontWeight: 900,
-          fontSize: 13,
-          textDecoration: "underline",
-          opacity: 0.9,
+          fontSize: 12,
+          opacity: 0.7,
         }}
         aria-expanded={open}
       >
@@ -311,7 +311,8 @@ const downloadBtn: React.CSSProperties = {
   border: "1px solid rgba(0,0,0,0.12)",
   textDecoration: "none",
   color: "inherit",
-  fontWeight: 900,
+  fontWeight: 700,
+  opacity: 0.9,
   background: "white",
 };
 
