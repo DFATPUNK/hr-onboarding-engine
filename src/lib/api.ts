@@ -37,7 +37,7 @@ export type RunRecord = {
 };
 
 export async function postOfferSigned(payload: OfferSignedPayload): Promise<DemoResponse> {
-  const res = await fetch("/api/demo/offersigned", {
+  const res = await fetch("/api/alan/demo/offersigned", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -51,7 +51,7 @@ export async function postOfferSigned(payload: OfferSignedPayload): Promise<Demo
 }
 
 export async function fetchRun(runId: string): Promise<{ run: RunRecord; steps: RunStep[] }> {
-  const res = await fetch(`/api/runs/${encodeURIComponent(runId)}`);
+  const res = await fetch(`/api/alan/runs/${encodeURIComponent(runId)}`);
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     throw new Error(data?.error ?? "Failed to load run");
