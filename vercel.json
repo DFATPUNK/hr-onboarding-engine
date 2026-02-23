@@ -3,9 +3,8 @@
     { "handle": "filesystem" },
 
     { "src": "^/alan/assets/(.*)$", "dest": "/assets/$1" },
-    { "src": "^/alan/(.*)$", "dest": "/index.html" },
+    { "src": "^/alan(/.*)?$", "dest": "/index.html" },
 
-    { "src": "^/api/(.*)$", "dest": "/api/$1" },
-    { "src": "^/(.*)$", "dest": "/index.html" }
+    { "src": "^/(?!api/)(.*)$", "dest": "/index.html" }
   ]
 }
