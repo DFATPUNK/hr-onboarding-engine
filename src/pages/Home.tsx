@@ -242,7 +242,7 @@ function CandidateApplicationPanel() {
 
         <div style={{ marginTop: 12, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
           <a
-            href="/assets/ana-lopez-resume.pdf"
+            href={`${import.meta.env.BASE_URL}assets/ana-lopez-resume.pdf`}
             target="_blank"
             rel="noreferrer"
             style={downloadBtn}
