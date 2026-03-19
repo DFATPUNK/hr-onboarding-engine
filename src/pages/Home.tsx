@@ -298,7 +298,8 @@ function CandidateApplicationPanel({ scenario }: { scenario: ScenarioKind | null
     requisition_id: "req_alan_1432",
     source: "Inbound",
   };
-
+  
+  /* Save these QA variables for later -- QA to be relocated elsewhere
   const q1 =
     "Share a specific example of a manual internal process you fully automated using low-code tools or APIs. What was the 'Before' vs 'After' impact?";
   const a1 =
@@ -308,7 +309,7 @@ function CandidateApplicationPanel({ scenario }: { scenario: ScenarioKind | null
     "Part of this role involves modeling Compensation Strategy. Please describe your experience with salary grids or budget modeling. How do you approach the trade-off between market competitiveness and budget constraints?";
   const a2 =
     "I treat compensation as a system: internal fairness, market competitiveness, and budget sustainability must be modeled together. My approach is to build a clear grid (levels, roles, ranges) and make exceptions explicit and documented.\n\nI start by defining the compensation philosophy (target percentile and consistency rules), then I model budget impact under multiple scenarios (e.g., +3% uplift for specific families, re-leveling, targeted adjustments). Market data is a signal, not a mandate: I prioritize internal coherence and retention risk, then phase changes with clear guardrails.\n\nWhen constraints are tight, I prefer targeted, transparent adjustments over broad, uneven increases, and I always track downstream effects (compression, equity across teams, and hiring competitiveness).";
-
+  */
   const scenarioInfo = scenario ? SCENARIOS[scenario] : null;
 
   return (
@@ -388,7 +389,8 @@ function CandidateApplicationPanel({ scenario }: { scenario: ScenarioKind | null
           </div>
         )}
       </div>
-
+      
+      {/* Save these QA for later
       <div style={{ padding: 12, borderRadius: 14, border: "1px solid rgba(0,0,0,0.10)" }}>
         <div style={{ fontWeight: 700, marginBottom: 10 }}>Application questions</div>
 
@@ -396,10 +398,12 @@ function CandidateApplicationPanel({ scenario }: { scenario: ScenarioKind | null
         <div style={{ height: 10 }} />
         <QA q={q2} a={a2} />
       </div>
+      */}
     </div>
   );
 }
 
+/* Save this function for later -- QA to be relocated elsewhere
 function QA({ q, a }: { q: string; a: string }) {
   const [open, setOpen] = useState(false);
 
@@ -431,6 +435,7 @@ function QA({ q, a }: { q: string; a: string }) {
     </div>
   );
 }
+*/
 
 function formatMDY(iso: string) {
   const [y, m, d] = String(iso).split("-");
