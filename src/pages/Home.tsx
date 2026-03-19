@@ -12,6 +12,32 @@ type Alignment = {
   reason: string;
 };
 
+type AshbyCandidate = {
+  name: string;
+  email: string;
+  phone: string;
+  location: string;
+  citizenship: string;
+  work_authorization: string;
+  years_experience: string;
+  primary_stack: string;
+  languages: string;
+  notice_period: string;
+};
+
+type AshbyApplication = {
+  event: string;
+  occurred_at: string;
+  candidate: AshbyCandidate;
+  job: { title: string; department: string; level: string };
+  start_date: string;
+  contract_type: string;
+  country: string;
+  work_model: string;
+  requisition_id: string;
+  source: string;
+};
+
 type ScenarioDefinition = {
   title: string;
   subtitle: string;
@@ -19,7 +45,22 @@ type ScenarioDefinition = {
   expectedOutcome: string;
   runSummaryHint: string;
   job: { title: string; department: string; level: string };
+  candidatePayload: { first_name: string; last_name: string; email: string };
+  ashby: AshbyApplication;
   alignments: Alignment[];
+};
+
+const BASE_ANA_CANDIDATE: AshbyCandidate = {
+  name: "Ana Lopez",
+  email: "ana.lopez@alan-demo.com",
+  phone: "+33 6 44 92 10 12",
+  location: "Paris, FR",
+  citizenship: "Spanish",
+  work_authorization: "EU citizen - authorized in FR",
+  years_experience: "6 years",
+  primary_stack: "TypeScript, Node.js, PostgreSQL",
+  languages: "Spanish (native), English (fluent), French (professional)",
+  notice_period: "1 month",
 };
 
 const SCENARIOS: Record<ScenarioKind, ScenarioDefinition> = {
@@ -30,11 +71,24 @@ const SCENARIOS: Record<ScenarioKind, ScenarioDefinition> = {
     expectedOutcome: "Expected outcome: Full zero-touch onboarding (SUCCESS).",
     runSummaryHint: "All key details align with the Backend Engineer requirements.",
     job: { title: "Backend Engineer", department: "Engineering", level: "B2" },
+    candidatePayload: { first_name: "Ana", last_name: "Lopez", email: "ana.lopez@alan-demo.com" },
+    ashby: {
+      event: "candidate.hired",
+      occurred_at: "2026-02-01T09:12:00Z",
+      candidate: BASE_ANA_CANDIDATE,
+      job: { title: "Backend Engineer", department: "Engineering", level: "B2" },
+      start_date: "2026-02-03",
+      contract_type: "Permanent",
+      country: "FR",
+      work_model: "Hybrid (Paris office)",
+      requisition_id: "req_alan_1432",
+      source: "Inbound",
+    },
     alignments: [
       { label: "Role", value: "Backend Engineer", aligns: "yes", reason: "Direct match with the open position." },
       { label: "Department", value: "Engineering", aligns: "yes", reason: "Matches the team owning this requisition." },
       { label: "Level", value: "B2", aligns: "yes", reason: "Falls inside approved leveling for this role." },
-      { label: "Country", value: "FR", aligns: "yes", reason: "Supported employment geography for the entity." },
+      { label: "Work authorization", value: "EU citizen - authorized in FR", aligns: "yes", reason: "Compliant with French employment requirements." },
       { label: "Contract type", value: "Permanent", aligns: "yes", reason: "Compliant contract type for automated onboarding." },
       { label: "Start date", value: "2026-02-03", aligns: "yes", reason: "Timeline is valid for provisioning lead times." },
     ],
@@ -46,11 +100,29 @@ const SCENARIOS: Record<ScenarioKind, ScenarioDefinition> = {
     expectedOutcome: "Expected outcome: Ambiguity detected (FLAGGED).",
     runSummaryHint: "The role metadata is not recognized by the onboarding rules.",
     job: { title: "Quantum HR Wizard", department: "People", level: "C1" },
+    candidatePayload: { first_name: "Ana", last_name: "Lopez", email: "ana+alt-role@alan-demo.com" },
+    ashby: {
+      event: "candidate.hired",
+      occurred_at: "2026-02-01T09:12:00Z",
+      candidate: {
+        ...BASE_ANA_CANDIDATE,
+        email: "ana+alt-role@alan-demo.com",
+        years_experience: "11 years",
+        primary_stack: "Org design, compensation frameworks, HR tooling",
+      },
+      job: { title: "Quantum HR Wizard", department: "People", level: "C1" },
+      start_date: "2026-02-03",
+      contract_type: "Permanent",
+      country: "FR",
+      work_model: "Hybrid (Paris office)",
+      requisition_id: "req_alan_1432",
+      source: "Referral",
+    },
     alignments: [
       { label: "Role", value: "Quantum HR Wizard", aligns: "no", reason: "Role is unknown to the access and provisioning matrix." },
       { label: "Department", value: "People", aligns: "no", reason: "Department does not match the Engineering requisition." },
       { label: "Level", value: "C1", aligns: "risk", reason: "Out-of-band seniority likely needs manual compensation review." },
-      { label: "Country", value: "FR", aligns: "yes", reason: "Employment location remains valid." },
+      { label: "Primary expertise", value: "Org design, compensation frameworks", aligns: "risk", reason: "Profile focus differs from Backend Engineer requirements." },
       { label: "Contract type", value: "Permanent", aligns: "yes", reason: "Contract setup can still be processed." },
       { label: "Start date", value: "2026-02-03", aligns: "yes", reason: "No scheduling conflict detected." },
     ],
@@ -62,11 +134,27 @@ const SCENARIOS: Record<ScenarioKind, ScenarioDefinition> = {
     expectedOutcome: "Expected outcome: Partial automation (PARTIAL).",
     runSummaryHint: "Candidate details align, but provisioning cannot fully complete because of an IT outage.",
     job: { title: "Backend Engineer", department: "Engineering", level: "B2" },
+    candidatePayload: { first_name: "Ana", last_name: "Lopez", email: "ana.lopez@alan-demo.com" },
+    ashby: {
+      event: "candidate.hired",
+      occurred_at: "2026-02-01T09:12:00Z",
+      candidate: {
+        ...BASE_ANA_CANDIDATE,
+        notice_period: "Immediate",
+      },
+      job: { title: "Backend Engineer", department: "Engineering", level: "B2" },
+      start_date: "2026-02-03",
+      contract_type: "Permanent",
+      country: "FR",
+      work_model: "Remote-first",
+      requisition_id: "req_alan_1432",
+      source: "Inbound",
+    },
     alignments: [
       { label: "Role", value: "Backend Engineer", aligns: "yes", reason: "Role is recognized by onboarding templates." },
       { label: "Department", value: "Engineering", aligns: "yes", reason: "Matches the target team configuration." },
       { label: "Level", value: "B2", aligns: "yes", reason: "Level is compatible with default access bundles." },
-      { label: "Country", value: "FR", aligns: "yes", reason: "Entity and payroll setup are valid." },
+      { label: "Work authorization", value: "EU citizen - authorized in FR", aligns: "yes", reason: "Entity and payroll setup are valid." },
       { label: "Contract type", value: "Permanent", aligns: "yes", reason: "Contract path is fully supported." },
       { label: "IT systems readiness", value: "Provisioning API unavailable", aligns: "risk", reason: "Operational dependency blocks full completion despite matching profile." },
     ],
@@ -92,7 +180,7 @@ export default function Home() {
   const basePayload: OfferSignedPayload = useMemo(
     () => ({
       event_id: `evt_demo_${Date.now()}`,
-      candidate: { first_name: "Ana", last_name: "Lopez", email: "ana.lopez@alan-demo.com" },
+      candidate: SCENARIOS.standard.candidatePayload,
       job: { title: "Backend Engineer", department: "Engineering", level: "B2" },
       employment: { country: "FR", contract_type: "Permanent", start_date: "2026-02-03" },
       scenario: { standard: true, unknown_role: false, simulate_it_failure: false },
@@ -118,6 +206,7 @@ export default function Home() {
 
       // flagged scenario: deliberately weird role + People department
       payload.job = SCENARIOS[kind].job;
+      payload.candidate = SCENARIOS[kind].candidatePayload;
 
       const r = await postOfferSigned(payload);
 
@@ -278,39 +367,8 @@ export default function Home() {
 function CandidateApplicationPanel({ scenario }: { scenario: ScenarioKind | null }) {
   const [mode, setMode] = useState<"text" | "json">("text");
 
-  // Mock Ashby-like event payload for Alan-style context
-  const ashby = {
-    event: "candidate.hired",
-    occurred_at: "2026-02-01T09:12:00Z",
-    candidate: {
-      name: "Ana Lopez",
-      email: "ana.lopez@alan-demo.com",
-      location: "Paris, FR",
-    },
-    job: {
-      title: "Backend Engineer",
-      department: "Engineering",
-      level: "B2",
-    },
-    start_date: "2026-02-03",
-    contract_type: "Permanent",
-    country: "FR",
-    requisition_id: "req_alan_1432",
-    source: "Inbound",
-  };
-  
-  /* Save these QA variables for later -- QA to be relocated elsewhere
-  const q1 =
-    "Share a specific example of a manual internal process you fully automated using low-code tools or APIs. What was the 'Before' vs 'After' impact?";
-  const a1 =
-    "Before: onboarding required HR to copy-paste details across tools (HRIS, Slack, IT) and manually chase confirmations using checklists. This created delays, inconsistent access setups, and fragile handovers.\n\nAfter: I designed an event-driven onboarding flow triggered by “candidate.hired”. Deterministic actions (account creation, hardware order, access provisioning) ran automatically via API calls, while ambiguous cases were flagged for human review. The system wrote an audit trail for each action.\n\nImpact: onboarding lead time decreased from “hours spread over multiple handoffs” to “minutes with zero manual coordination” for standard cases, with fewer errors and higher traceability.";
-
-  const q2 =
-    "Part of this role involves modeling Compensation Strategy. Please describe your experience with salary grids or budget modeling. How do you approach the trade-off between market competitiveness and budget constraints?";
-  const a2 =
-    "I treat compensation as a system: internal fairness, market competitiveness, and budget sustainability must be modeled together. My approach is to build a clear grid (levels, roles, ranges) and make exceptions explicit and documented.\n\nI start by defining the compensation philosophy (target percentile and consistency rules), then I model budget impact under multiple scenarios (e.g., +3% uplift for specific families, re-leveling, targeted adjustments). Market data is a signal, not a mandate: I prioritize internal coherence and retention risk, then phase changes with clear guardrails.\n\nWhen constraints are tight, I prefer targeted, transparent adjustments over broad, uneven increases, and I always track downstream effects (compression, equity across teams, and hiring competitiveness).";
-  */
   const scenarioInfo = scenario ? SCENARIOS[scenario] : null;
+  const ashby = scenarioInfo?.ashby ?? SCENARIOS.standard.ashby;
 
   return (
     <div style={{ display: "grid", gap: 12 }}>
@@ -319,7 +377,7 @@ function CandidateApplicationPanel({ scenario }: { scenario: ScenarioKind | null
           <div>
             <div style={{ fontSize: 16, fontWeight: 900 }}>Candidate application</div>
             <div style={{ fontSize: 12, opacity: 0.75 }}>
-              Simulated Ashby “Candidate hired” payload + answers to application questions.
+              Full Ashby-style profile used to evaluate alignment with Alan's job offer.
             </div>
           </div>
 
@@ -331,10 +389,24 @@ function CandidateApplicationPanel({ scenario }: { scenario: ScenarioKind | null
 
         {mode === "text" ? (
           <div style={{ marginTop: 10, fontSize: 13, opacity: 0.92, lineHeight: 1.5 }}>
-            Our candidate <b>{ashby.candidate.name}</b> (<b>{ashby.candidate.email}</b>) has been{" "}
-            <b>hired</b>. {ashby.candidate.name} will join our <b>{ashby.job.department}</b> team as{" "}
-            <b>{ashby.job.title}</b>, starting on <b>{formatMDY(ashby.start_date)}</b>. Contract type:{" "}
-            <b>{ashby.contract_type}</b>.
+            <div>
+              <b>{ashby.candidate.name}</b> (<b>{ashby.candidate.email}</b>) — {ashby.candidate.phone}
+            </div>
+            <div>
+              Location: <b>{ashby.candidate.location}</b> · Citizenship: <b>{ashby.candidate.citizenship}</b>
+            </div>
+            <div>
+              Work authorization: <b>{ashby.candidate.work_authorization}</b>
+            </div>
+            <div>
+              Experience: <b>{ashby.candidate.years_experience}</b> · Stack: <b>{ashby.candidate.primary_stack}</b>
+            </div>
+            <div>
+              Languages: <b>{ashby.candidate.languages}</b> · Notice period: <b>{ashby.candidate.notice_period}</b>
+            </div>
+            <div style={{ marginTop: 6 }}>
+              Candidate hired for <b>{ashby.job.title}</b> ({ashby.job.department}, {ashby.job.level}) starting <b>{formatMDY(ashby.start_date)}</b> · {ashby.contract_type} · {ashby.country} · {ashby.work_model}.
+            </div>
           </div>
         ) : (
           <pre style={preStyleTight}>{JSON.stringify(ashby, null, 2)}</pre>
@@ -389,53 +461,9 @@ function CandidateApplicationPanel({ scenario }: { scenario: ScenarioKind | null
           </div>
         )}
       </div>
-      
-      {/* Save these QA for later
-      <div style={{ padding: 12, borderRadius: 14, border: "1px solid rgba(0,0,0,0.10)" }}>
-        <div style={{ fontWeight: 700, marginBottom: 10 }}>Application questions</div>
-
-        <QA q={q1} a={a1} />
-        <div style={{ height: 10 }} />
-        <QA q={q2} a={a2} />
-      </div>
-      */}
     </div>
   );
 }
-
-/* Save this function for later -- QA to be relocated elsewhere
-function QA({ q, a }: { q: string; a: string }) {
-  const [open, setOpen] = useState(false);
-
-  return (
-    <div style={{ padding: 12, borderRadius: 12, background: "rgba(0,0,0,0.04)" }}>
-      <div style={{ fontWeight: 900, marginBottom: 8 }}>{q}</div>
-
-      <button
-        onClick={() => setOpen((v) => !v)}
-        style={{
-          padding: 0,
-          border: "none",
-          background: "transparent",
-          cursor: "pointer",
-          fontWeight: 900,
-          fontSize: 12,
-          opacity: 0.7,
-        }}
-        aria-expanded={open}
-      >
-        {open ? "Hide Ana's answer" : "Read Ana's answer"}
-      </button>
-
-      {open && (
-        <div style={{ marginTop: 10, fontSize: 13, opacity: 0.92, whiteSpace: "pre-wrap", lineHeight: 1.45 }}>
-          {a}
-        </div>
-      )}
-    </div>
-  );
-}
-*/
 
 function formatMDY(iso: string) {
   const [y, m, d] = String(iso).split("-");
