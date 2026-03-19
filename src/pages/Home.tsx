@@ -468,6 +468,7 @@ function CandidateApplicationPanel({ scenario }: { scenario: ScenarioKind | null
           </div>
         )}
       </div>
+      */}
     </div>
   );
 }
