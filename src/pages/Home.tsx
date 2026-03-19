@@ -372,13 +372,6 @@ function CandidateApplicationPanel({ scenario }: { scenario: ScenarioKind | null
 
   return (
     <div style={{ display: "grid", gap: 12 }}>
-      {/* <div style={{ padding: 12, borderRadius: 14, border: "1px solid rgba(0,0,0,0.10)" }}>
-        <div style={{ fontWeight: 700, marginBottom: 10 }}>Application questions</div>
-        <QA q={q1} a={a1} />
-        <div style={{ height: 10 }} />
-        <QA q={q2} a={a2} />
-      </div> */}
-
       <div style={{ padding: 12, borderRadius: 14, border: "1px solid rgba(0,0,0,0.10)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
           <div>
@@ -468,7 +461,6 @@ function CandidateApplicationPanel({ scenario }: { scenario: ScenarioKind | null
           </div>
         )}
       </div>
-      */}
     </div>
   );
 }
