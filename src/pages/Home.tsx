@@ -5,11 +5,80 @@ import { statusBadge, toneStyle } from "../lib/rh";
 type ScenarioKind = "standard" | "flagged" | "partial";
 type RightTab = "candidate" | "onboarding" | "audit";
 
+type Alignment = {
+  label: string;
+  value: string;
+  aligns: "yes" | "no" | "risk";
+  reason: string;
+};
+
+type ScenarioDefinition = {
+  title: string;
+  subtitle: string;
+  icon: string;
+  expectedOutcome: string;
+  runSummaryHint: string;
+  job: { title: string; department: string; level: string };
+  alignments: Alignment[];
+};
+
+const SCENARIOS: Record<ScenarioKind, ScenarioDefinition> = {
+  standard: {
+    title: "Standard onboarding",
+    subtitle: "Expected: no action required",
+    icon: "▶️",
+    expectedOutcome: "Expected outcome: Full zero-touch onboarding (SUCCESS).",
+    runSummaryHint: "All key details align with the Backend Engineer requirements.",
+    job: { title: "Backend Engineer", department: "Engineering", level: "B2" },
+    alignments: [
+      { label: "Role", value: "Backend Engineer", aligns: "yes", reason: "Direct match with the open position." },
+      { label: "Department", value: "Engineering", aligns: "yes", reason: "Matches the team owning this requisition." },
+      { label: "Level", value: "B2", aligns: "yes", reason: "Falls inside approved leveling for this role." },
+      { label: "Country", value: "FR", aligns: "yes", reason: "Supported employment geography for the entity." },
+      { label: "Contract type", value: "Permanent", aligns: "yes", reason: "Compliant contract type for automated onboarding." },
+      { label: "Start date", value: "2026-02-03", aligns: "yes", reason: "Timeline is valid for provisioning lead times." },
+    ],
+  },
+  flagged: {
+    title: "Unknown role → requires HR review",
+    subtitle: "Expected: Human review required",
+    icon: "⚠️",
+    expectedOutcome: "Expected outcome: Ambiguity detected (FLAGGED).",
+    runSummaryHint: "The role metadata is not recognized by the onboarding rules.",
+    job: { title: "Quantum HR Wizard", department: "People", level: "C1" },
+    alignments: [
+      { label: "Role", value: "Quantum HR Wizard", aligns: "no", reason: "Role is unknown to the access and provisioning matrix." },
+      { label: "Department", value: "People", aligns: "no", reason: "Department does not match the Engineering requisition." },
+      { label: "Level", value: "C1", aligns: "risk", reason: "Out-of-band seniority likely needs manual compensation review." },
+      { label: "Country", value: "FR", aligns: "yes", reason: "Employment location remains valid." },
+      { label: "Contract type", value: "Permanent", aligns: "yes", reason: "Contract setup can still be processed." },
+      { label: "Start date", value: "2026-02-03", aligns: "yes", reason: "No scheduling conflict detected." },
+    ],
+  },
+  partial: {
+    title: "IT issue → partial completion",
+    subtitle: "Expected: Partial completion",
+    icon: "🔧",
+    expectedOutcome: "Expected outcome: Partial automation (PARTIAL).",
+    runSummaryHint: "Candidate details align, but provisioning cannot fully complete because of an IT outage.",
+    job: { title: "Backend Engineer", department: "Engineering", level: "B2" },
+    alignments: [
+      { label: "Role", value: "Backend Engineer", aligns: "yes", reason: "Role is recognized by onboarding templates." },
+      { label: "Department", value: "Engineering", aligns: "yes", reason: "Matches the target team configuration." },
+      { label: "Level", value: "B2", aligns: "yes", reason: "Level is compatible with default access bundles." },
+      { label: "Country", value: "FR", aligns: "yes", reason: "Entity and payroll setup are valid." },
+      { label: "Contract type", value: "Permanent", aligns: "yes", reason: "Contract path is fully supported." },
+      { label: "IT systems readiness", value: "Provisioning API unavailable", aligns: "risk", reason: "Operational dependency blocks full completion despite matching profile." },
+    ],
+  },
+};
+
 const LS_LAST_RUN = "hr_onboarding_last_run_id";
 
 export default function Home() {
   const [loading, setLoading] = useState(false);
   const [activeScenario, setActiveScenario] = useState<ScenarioKind | null>(null);
+  const [selectedScenario, setSelectedScenario] = useState<ScenarioKind | null>(null);
 
   const [rightTab, setRightTab] = useState<RightTab>("candidate");
 
@@ -48,9 +117,7 @@ export default function Home() {
       };
 
       // flagged scenario: deliberately weird role + People department
-      if (kind === "flagged") {
-        payload.job = { title: "Quantum HR Wizard", department: "People", level: "C1" };
-      }
+      payload.job = SCENARIOS[kind].job;
 
       const r = await postOfferSigned(payload);
 
@@ -68,7 +135,8 @@ export default function Home() {
 
       // After a run, default to onboarding details tab
       setRightTab("onboarding");
-    } catch (e: any) {
+    } catch {
+      setRunSummary("Unable to run this scenario. Please retry.");
     } finally {
       setLoading(false);
       setActiveScenario(null);
@@ -113,31 +181,60 @@ export default function Home() {
 
           <div style={{ marginTop: 12 }}>
             <ScenarioButton
-              title="Standard onboarding"
-              subtitle="Expected: no action required"
-              icon="▶️"
+              title={SCENARIOS.standard.title}
+              subtitle={SCENARIOS.standard.subtitle}
+              icon={SCENARIOS.standard.icon}
               disabled={loading}
-              active={activeScenario === "standard"}
-              onClick={() => runScenario("standard")}
+              active={selectedScenario === "standard"}
+              onClick={() => {
+                setSelectedScenario("standard");
+                setRightTab("candidate");
+              }}
             />
 
             <ScenarioButton
-              title="Unknown role → requires HR review"
-              subtitle="Expected: Human review required"
-              icon="⚠️"
+              title={SCENARIOS.flagged.title}
+              subtitle={SCENARIOS.flagged.subtitle}
+              icon={SCENARIOS.flagged.icon}
               disabled={loading}
-              active={activeScenario === "flagged"}
-              onClick={() => runScenario("flagged")}
+              active={selectedScenario === "flagged"}
+              onClick={() => {
+                setSelectedScenario("flagged");
+                setRightTab("candidate");
+              }}
             />
 
             <ScenarioButton
-              title="IT issue → partial completion"
-              subtitle="Expected: Partial completion"
-              icon="🔧"
+              title={SCENARIOS.partial.title}
+              subtitle={SCENARIOS.partial.subtitle}
+              icon={SCENARIOS.partial.icon}
               disabled={loading}
-              active={activeScenario === "partial"}
-              onClick={() => runScenario("partial")}
+              active={selectedScenario === "partial"}
+              onClick={() => {
+                setSelectedScenario("partial");
+                setRightTab("candidate");
+              }}
             />
+
+            {selectedScenario && (
+              <button
+                onClick={() => runScenario(selectedScenario)}
+                disabled={loading}
+                style={{
+                  width: "100%",
+                  padding: "12px 14px",
+                  borderRadius: 14,
+                  border: "1px solid rgba(0,0,0,0.18)",
+                  background: "rgba(0,0,0,0.06)",
+                  cursor: loading ? "not-allowed" : "pointer",
+                  fontWeight: 900,
+                }}
+              >
+                {loading && activeScenario === selectedScenario
+                  ? `Running ${SCENARIOS[selectedScenario].title}…`
+                  : `Run ${SCENARIOS[selectedScenario].title}`}
+              </button>
+            )}
           </div>
         </section>
 
@@ -165,7 +262,7 @@ export default function Home() {
           </div>
 
           <div style={{ marginTop: 12, height: "100%", overflow: "auto" }}>
-            {rightTab === "candidate" && <CandidateApplicationPanel />}
+            {rightTab === "candidate" && <CandidateApplicationPanel scenario={selectedScenario} />}
             {rightTab === "onboarding" && <OnboardingDetailsEmbedded runId={runId} runInput={runInput} steps={runSteps} status={runStatus} summary={runSummary} />}
             {rightTab === "audit" && <AuditLogEmbedded steps={runSteps} status={runStatus} />}
           </div>
@@ -178,7 +275,7 @@ export default function Home() {
 
 /* ----------------------------- Embedded panels ---------------------------- */
 
-function CandidateApplicationPanel() {
+function CandidateApplicationPanel({ scenario }: { scenario: ScenarioKind | null }) {
   const [mode, setMode] = useState<"text" | "json">("text");
 
   // Mock Ashby-like event payload for Alan-style context
@@ -201,7 +298,8 @@ function CandidateApplicationPanel() {
     requisition_id: "req_alan_1432",
     source: "Inbound",
   };
-
+  
+  /* Save these QA variables for later -- QA to be relocated elsewhere
   const q1 =
     "Share a specific example of a manual internal process you fully automated using low-code tools or APIs. What was the 'Before' vs 'After' impact?";
   const a1 =
@@ -211,6 +309,8 @@ function CandidateApplicationPanel() {
     "Part of this role involves modeling Compensation Strategy. Please describe your experience with salary grids or budget modeling. How do you approach the trade-off between market competitiveness and budget constraints?";
   const a2 =
     "I treat compensation as a system: internal fairness, market competitiveness, and budget sustainability must be modeled together. My approach is to build a clear grid (levels, roles, ranges) and make exceptions explicit and documented.\n\nI start by defining the compensation philosophy (target percentile and consistency rules), then I model budget impact under multiple scenarios (e.g., +3% uplift for specific families, re-leveling, targeted adjustments). Market data is a signal, not a mandate: I prioritize internal coherence and retention risk, then phase changes with clear guardrails.\n\nWhen constraints are tight, I prefer targeted, transparent adjustments over broad, uneven increases, and I always track downstream effects (compression, equity across teams, and hiring competitiveness).";
+  */
+  const scenarioInfo = scenario ? SCENARIOS[scenario] : null;
 
   return (
     <div style={{ display: "grid", gap: 12 }}>
@@ -256,16 +356,54 @@ function CandidateApplicationPanel() {
       </div>
 
       <div style={{ padding: 12, borderRadius: 14, border: "1px solid rgba(0,0,0,0.10)" }}>
+        <div style={{ fontWeight: 900, marginBottom: 6 }}>Position requirement alignment</div>
+        {!scenarioInfo && (
+          <div style={{ fontSize: 13, opacity: 0.78 }}>
+            Select a scenario to preview why onboarding is expected to fully succeed, partially succeed, or need HR review.
+          </div>
+        )}
+        {scenarioInfo && (
+          <div style={{ display: "grid", gap: 8 }}>
+            <div style={{ fontSize: 13, opacity: 0.88 }}>
+              <b>{scenarioInfo.expectedOutcome}</b> {scenarioInfo.runSummaryHint}
+            </div>
+            {scenarioInfo.alignments.map((item) => (
+              <div
+                key={item.label}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr auto",
+                  gap: 8,
+                  padding: 10,
+                  borderRadius: 10,
+                  background: "rgba(0,0,0,0.04)",
+                }}
+              >
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: 13 }}>{item.label}: {item.value}</div>
+                  <div style={{ fontSize: 12, opacity: 0.75 }}>{item.reason}</div>
+                </div>
+                <span style={{ fontSize: 12, fontWeight: 900, opacity: 0.9 }}>{alignmentLabel(item.aligns)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      
+      {/* Save these QA for later
+      <div style={{ padding: 12, borderRadius: 14, border: "1px solid rgba(0,0,0,0.10)" }}>
         <div style={{ fontWeight: 700, marginBottom: 10 }}>Application questions</div>
 
         <QA q={q1} a={a1} />
         <div style={{ height: 10 }} />
         <QA q={q2} a={a2} />
       </div>
+      */}
     </div>
   );
 }
 
+/* Save this function for later -- QA to be relocated elsewhere
 function QA({ q, a }: { q: string; a: string }) {
   const [open, setOpen] = useState(false);
 
@@ -297,6 +435,7 @@ function QA({ q, a }: { q: string; a: string }) {
     </div>
   );
 }
+*/
 
 function formatMDY(iso: string) {
   const [y, m, d] = String(iso).split("-");
@@ -512,7 +651,7 @@ function ScenarioButton({
           {title}
           <div style={{ fontSize: 12, opacity: 0.7, fontWeight: 700, marginTop: 6 }}>{subtitle}</div>
         </div>
-        {active && <div style={{ fontSize: 12, opacity: 0.85, fontWeight: 900 }}>Running…</div>}
+        {active && <div style={{ fontSize: 12, opacity: 0.85, fontWeight: 900 }}>Selected</div>}
       </div>
     </button>
   );
@@ -576,6 +715,12 @@ function humanLabel(step: string) {
     FINISH_RUN: "Onboarding completed",
   };
   return map[s] ?? step;
+}
+
+function alignmentLabel(value: Alignment["aligns"]) {
+  if (value === "yes") return "✅ Aligns";
+  if (value === "no") return "❌ Does not align";
+  return "⚠️ Risk";
 }
 
 const segmentedWrap: React.CSSProperties = {
